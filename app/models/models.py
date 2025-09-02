@@ -1,5 +1,10 @@
+# -*- coding: utf-8 -*-
 """
 数据库模型定义
+
+作者: 王梓涵
+邮箱: wangzh011031@163.com
+时间: 2025年
 """
 from sqlalchemy import Column, Integer, String, Text, Boolean, TIMESTAMP, ForeignKey, SmallInteger, CheckConstraint, ARRAY
 from sqlalchemy.ext.declarative import declarative_base

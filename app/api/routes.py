@@ -1,5 +1,10 @@
+# -*- coding: utf-8 -*-
 """
 API路由扩展
+
+作者: 王梓涵
+邮箱: wangzh011031@163.com
+时间: 2025年
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Form as FormField, UploadFile, File
 from sqlalchemy.orm import Session

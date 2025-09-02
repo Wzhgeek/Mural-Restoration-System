@@ -1,5 +1,10 @@
+# -*- coding: utf-8 -*-
 """
 Pydantic数据模型
+
+作者: 王梓涵
+邮箱: wangzh011031@163.com
+时间: 2025年
 """
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, List, Any

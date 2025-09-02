@@ -1,6 +1,11 @@
+# -*- coding: utf-8 -*-
 """
 克孜尔石窟壁画智慧修复全生命周期管理系统
 主应用程序
+
+作者: 王梓涵
+邮箱: wangzh011031@163.com
+时间: 2025年
 """
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form as FormField, status
 from fastapi.staticfiles import StaticFiles

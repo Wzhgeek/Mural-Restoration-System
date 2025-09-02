@@ -1,5 +1,10 @@
+# -*- coding: utf-8 -*-
 """
 文件存储服务 - MinIO
+
+作者: 王梓涵
+邮箱: wangzh011031@163.com
+时间: 2025年
 """
 from minio import Minio
 from minio.error import S3Error

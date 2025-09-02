@@ -1,5 +1,10 @@
+# -*- coding: utf-8 -*-
 """
 数据库连接和初始化
+
+作者: 王梓涵
+邮箱: wangzh011031@163.com
+时间: 2025年
 """
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
