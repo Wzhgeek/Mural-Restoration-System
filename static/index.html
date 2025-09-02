@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>克孜尔石窟壁画智慧修复全生命周期管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部导航栏 -->
+        <nav class="navbar">
+            <div class="navbar-brand">克孜尔石窟壁画智慧修复全生命周期管理系统</div>
+            <div class="navbar-user">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar"></div>
+                    <div>
+                        <div style="font-weight: 600;" id="userName"></div>
+                        <div style="font-size: 12px; color: #6c757d;" id="userRole"></div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="http.logout()">退出</button>
+            </div>
+        </nav>
+
+        <!-- 主体布局 -->
+        <div class="main-layout">
+            <!-- 侧边栏 -->
+            <aside class="sidebar">
+                <ul class="sidebar-nav">
+                    <li>
+                        <a href="#" onclick="showPage('dashboard')" class="nav-link active" data-page="dashboard">
+                            📊 仪表板
+                        </a>
+                    </li>
+                    <li id="nav-restoration" class="hidden">
+                        <a href="#" onclick="showPage('restoration')" class="nav-link" data-page="restoration">
+                            🔧 壁画修复
+                        </a>
+                    </li>
+                    <li id="nav-evaluation" class="hidden">
+                        <a href="#" onclick="showPage('evaluation')" class="nav-link" data-page="evaluation">
+                            📋 评估修复
+                        </a>
+                    </li>
+                    <li id="nav-management" class="hidden">
+                        <a href="#" onclick="showPage('management')" class="nav-link" data-page="management">
+                            ⚙️ 修复管理
+                        </a>
+                    </li>
+                    <li id="nav-rollback-history" class="hidden">
+                        <a href="#" onclick="showPage('rollback-history')" class="nav-link" data-page="rollback-history">
+                            📜 回溯历史
+                        </a>
+                    </li>
+                    <li id="nav-evaluation-history" class="hidden">
+                        <a href="#" onclick="showPage('evaluation-history')" class="nav-link" data-page="evaluation-history">
+                            📊 评估历史
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" onclick="showPage('profile')" class="nav-link" data-page="profile">
+                            👤 个人信息
+                        </a>
+                    </li>
+                </ul>
+            </aside>
+
+            <!-- 内容区域 -->
+            <main class="content">
+                <!-- 仪表板页面 -->
+                <div id="page-dashboard" class="page-content">
+                    <div class="page-header">
+                        <h2 class="page-title">仪表板</h2>
+                        <p class="page-description">系统概览和数据统计</p>
+                    </div>
+
+                    <!-- 统计卡片 -->
+                    <div class="stats-grid" id="statsContainer">
+                        <!-- 统计数据将动态加载 -->
+                    </div>
+
+                    <!-- 图表区域 -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px; margin-bottom: 25px;">
+                        <!-- 工作流趋势图 -->
+                        <div class="card" id="trendChartCard" style="display: none;">
+                            <div class="card-body">
+                                <div id="trendChart">
+                                    <!-- 趋势图将动态加载 -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 评分分布图 -->
+                        <div class="card" id="scoreChartCard" style="display: none;">
+                            <div class="card-body">
+                                <div id="scoreChart">
+                                    <!-- 评分分布图将动态加载 -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 个人进度图 -->
+                        <div class="card" id="progressChartCard" style="display: none;">
+                            <div class="card-body">
+                                <div id="progressChart">
+                                    <!-- 个人进度图将动态加载 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 最近活动 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">最近活动</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="recentActivities">
+                                <p class="text-center">加载中...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 壁画修复页面 -->
+                <div id="page-restoration" class="page-content hidden">
+                    <div class="page-header">
+                        <h2 class="page-title">壁画修复</h2>
+                        <p class="page-description">发起和管理修复工作流程</p>
+                    </div>
+
+                    <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+                        <button class="btn btn-primary" onclick="showCreateWorkflowModal()">📝 创建新工作流</button>
+                        <button class="btn btn-secondary" onclick="loadWorkflows()">🔄 刷新列表</button>
+                    </div>
+
+                    <!-- 工作流列表 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">我的工作流</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="workflowsList">
+                                <p class="text-center">加载中...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 评估修复页面 -->
+                <div id="page-evaluation" class="page-content hidden">
+                    <div class="page-header">
+                        <h2 class="page-title">评估修复</h2>
+                        <p class="page-description">评估已完成的修复工作流程</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">待评估工作流</h3>
+                            <div class="card-actions">
+                                <input type="text" id="evaluationSearchInput" class="form-control" placeholder="搜索工作流..." style="width: 200px; display: inline-block; margin-right: 10px;">
+                                <select id="evaluationWorkflowFilter" class="form-control" style="width: auto; display: inline-block; margin-right: 10px;">
+                                    <option value="">全部工作流</option>
+                                    <option value="finished">已完成</option>
+                                    <option value="evaluated">已评估</option>
+                                    <option value="unevaluated">未评估</option>
+                                </select>
+                                <button class="btn btn-primary btn-sm" onclick="searchAndFilterEvaluationWorkflows()" style="margin-right: 10px;">🔍 搜索筛选</button>
+                                <button class="btn btn-secondary btn-sm" onclick="loadEvaluationList()">🔄 刷新</button>
+                                <button class="btn btn-danger btn-sm" id="deleteSelectedEvaluationBtn" onclick="deleteSelectedEvaluationWorkflows()" style="display: none; margin-left: 10px;">🗑️ 删除选中</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="evaluationList">
+                                <p class="text-center">加载中...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 修复管理页面 -->
+                <div id="page-management" class="page-content hidden">
+                    <div class="page-header">
+                        <h2 class="page-title">修复管理</h2>
+                        <p class="page-description">管理所有修复工作流程和回溯申请</p>
+                    </div>
+
+                    <!-- 管理员操作按钮 -->
+                    <div id="adminControls" class="hidden" style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; align-items: center; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="managementSearchInput" style="font-weight: 500; color: #495057; white-space: nowrap;">搜索:</label>
+                            <input type="text" id="managementSearchInput" class="form-control" placeholder="搜索工作流..." style="width: 220px; min-width: 180px;">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="managementStatusFilter" style="font-weight: 500; color: #495057; white-space: nowrap;">状态:</label>
+                            <select id="managementStatusFilter" class="form-control" style="width: 140px;">
+                                <option value="">全部状态</option>
+                                <option value="pending">待处理</option>
+                                <option value="in_progress">进行中</option>
+                                <option value="finished">已完成</option>
+                                <option value="rejected">已拒绝</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-left: auto;">
+                            <button class="btn btn-primary" onclick="searchAndFilterManagement()" style="display: flex; align-items: center; gap: 5px;">🔍 搜索筛选</button>
+                            <button class="btn btn-info" onclick="loadAllWorkflows()" style="display: flex; align-items: center; gap: 5px;">🔄 刷新数据</button>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-col">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">所有工作流</h3>
+
+                                </div>
+                                <div class="card-body">
+                                    <div id="allWorkflowsList">
+                                        <p class="text-center">加载中...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-col">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">待审批回溯申请</h3>
+                                    <div class="card-actions">
+                                        <input type="text" id="rollbackSearchInput" class="form-control" placeholder="搜索回溯申请..." style="width: 200px; display: inline-block; margin-right: 10px;" oninput="searchRollbackRequests()">
+                                        <select id="rollbackStatusFilter" class="form-control" style="width: auto; display: inline-block; margin-right: 10px;" onchange="filterRollbackRequests()">
+                                            <option value="">全部状态</option>
+                                            <option value="pending">待审批</option>
+                                            <option value="approved">已批准</option>
+                                            <option value="rejected">已拒绝</option>
+                                        </select>
+                                        <button class="btn btn-secondary btn-sm" onclick="loadRollbackRequests()">🔄 刷新</button>
+                                        <button class="btn btn-danger btn-sm" id="deleteSelectedRollbackBtn" onclick="deleteSelectedRollbackRequests()" style="display: none; margin-left: 10px;">🗑️ 删除选中</button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div id="rollbackRequestsList">
+                                        <p class="text-center">加载中...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                </div>
+
+                <!-- 个人信息页面 -->
+                <div id="page-profile" class="page-content hidden">
+                    <div class="page-header">
+                        <h2 class="page-title">个人信息</h2>
+                        <p class="page-description">查看和修改个人信息</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">基本信息</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="profileInfo">
+                                <p class="text-center">加载中...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 回溯历史页面 -->
+                <div id="page-rollback-history" class="page-content hidden">
+                    <div class="page-header">
+                        <h2 class="page-title">回溯历史</h2>
+                        <p class="page-description">查看历史回溯申请记录</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">回溯申请记录</h3>
+                            <div class="card-actions">
+                                <input type="text" id="rollbackHistorySearchInput" class="form-control" placeholder="搜索回溯记录..." style="width: 200px; display: inline-block; margin-right: 10px;">
+                                <select id="rollbackHistoryStatusFilter" class="form-control" style="width: auto; display: inline-block; margin-right: 10px;">
+                                    <option value="">全部状态</option>
+                                    <option value="pending">待审批</option>
+                                    <option value="approved">已批准</option>
+                                    <option value="rejected">已拒绝</option>
+                                </select>
+                                <button class="btn btn-primary btn-sm" onclick="searchAndFilterRollbackHistory()" style="margin-right: 10px;">🔍 搜索筛选</button>
+                                <button class="btn btn-secondary" onclick="loadRollbackHistory()">🔄 刷新</button>
+                                <button class="btn btn-danger btn-sm" id="deleteSelectedRollbackHistoryBtn" onclick="deleteSelectedRollbackHistory()" style="display: none; margin-left: 10px;">🗑️ 删除选中</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="rollbackHistoryList">
+                                <p class="text-center">加载中...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 评估历史页面 -->
+                <div id="page-evaluation-history" class="page-content hidden">
+                    <div class="page-header">
+                        <h2 class="page-title">评估历史</h2>
+                        <p class="page-description">查看历史评估记录</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">评估记录</h3>
+                            <div class="card-actions">
+                                <input type="text" id="evaluationHistorySearchInput" class="form-control" placeholder="搜索评估记录..." style="width: 200px; display: inline-block; margin-right: 10px;">
+                                <select id="evaluationScoreFilter" class="form-control" style="width: auto; display: inline-block; margin-right: 10px;">
+                                    <option value="">全部评分</option>
+                                    <option value="excellent">优秀 (≥80分)</option>
+                                    <option value="good">良好 (60-79分)</option>
+                                    <option value="poor">较差 (<60分)</option>
+                                </select>
+                                <button class="btn btn-primary btn-sm" onclick="searchAndFilterEvaluationHistory()" style="margin-right: 10px;">🔍 搜索筛选</button>
+                                <button class="btn btn-secondary" onclick="loadEvaluationHistory()">🔄 刷新</button>
+                                <button class="btn btn-danger btn-sm" id="deleteSelectedEvaluationHistoryBtn" onclick="deleteSelectedEvaluationHistory()" style="display: none; margin-left: 10px;">🗑️ 删除选中</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="evaluationHistoryList">
+                                <p class="text-center">加载中...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- 模态框容器 -->
+    <div id="modalContainer"></div>
+
+    <script src="/static/js/common.js?v=1.2"></script>
+    <script src="/static/js/app.js?v=1.2"></script>
+</body>
+</html>
+
+
+
+

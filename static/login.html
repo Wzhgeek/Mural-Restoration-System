@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>克孜尔石窟壁画智慧修复全生命周期管理系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- 主题切换按钮 -->
+    <div class="theme-toggle-container" style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+        <button id="theme-toggle" class="btn btn-secondary" style="
+            padding: 8px 12px;
+            border: none;
+            border-radius: var(--td-radius-medium);
+            background: var(--td-bg-color-component);
+            color: var(--td-text-color-primary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+        ">🌙 暗色</button>
+    </div>
+    
+    <div class="login-container">
+        <div class="login-box">
+            <h1 class="system-title">克孜尔石窟壁画智慧修复全生命周期管理系统</h1>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">用户名</label>
+                    <input type="text" class="form-control" id="username" name="username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    <span class="btn-text">登录</span>
+                    <span class="loading hidden" style="margin-left: 10px;"></span>
+                </button>
+            </form>
+            
+            <div class="mt-20">
+                <p style="color: #6c757d; font-size: 14px;">
+                    测试账号：<br>
+                    管理员：admin / admin123<br>
+                    修复专家：restorer1 / 123456<br>
+                    评估专家：evaluator1 / 123456
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/common.js"></script>
+    <script>
+        // 登录表单处理
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const btnText = loginBtn.querySelector('.btn-text');
+            const loading = loginBtn.querySelector('.loading');
+            
+            if (!username || !password) {
+                utils.showToast('请输入用户名和密码', 'warning');
+                return;
+            }
+            
+            // 显示加载状态
+            loginBtn.disabled = true;
+            btnText.textContent = '登录中...';
+            loading.classList.remove('hidden');
+            
+            try {
+                const result = await http.login(username, password);
+                utils.showToast('登录成功', 'success');
+                
+                // 跳转到主页面
+                setTimeout(() => {
+                    window.location.href = '/static/index.html';
+                }, 1000);
+                
+            } catch (error) {
+                utils.showToast('登录失败：' + error.message, 'error');
+            } finally {
+                // 恢复按钮状态
+                loginBtn.disabled = false;
+                btnText.textContent = '登录';
+                loading.classList.add('hidden');
+            }
+        });
+
+        // 回车键登录
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // 页面加载时设置焦点
+        window.addEventListener('load', function() {
+            document.getElementById('username').focus();
+        });
+
+        // 主题切换功能
+        class LoginThemeManager {
+            constructor() {
+                this.currentTheme = localStorage.getItem('theme-mode') || 'light';
+                this.init();
+            }
+
+            init() {
+                // 应用保存的主题
+                this.applyTheme(this.currentTheme);
+                
+                // 绑定主题切换按钮事件
+                const themeToggle = document.getElementById('theme-toggle');
+                if (themeToggle) {
+                    themeToggle.addEventListener('click', () => this.toggleTheme());
+                    themeToggle.addEventListener('mouseenter', () => {
+                        themeToggle.style.background = 'var(--td-bg-color-component-hover)';
+                    });
+                    themeToggle.addEventListener('mouseleave', () => {
+                        themeToggle.style.background = 'var(--td-bg-color-component)';
+                    });
+                }
+            }
+
+            applyTheme(theme) {
+                document.documentElement.setAttribute('theme-mode', theme);
+                localStorage.setItem('theme-mode', theme);
+                this.currentTheme = theme;
+                
+                // 更新主题切换按钮图标
+                this.updateToggleIcon();
+            }
+
+            toggleTheme() {
+                const newTheme = this.currentTheme === 'light' ? 'dark' : 'light';
+                this.applyTheme(newTheme);
+            }
+
+            updateToggleIcon() {
+                const themeToggle = document.getElementById('theme-toggle');
+                if (themeToggle) {
+                    const icon = this.currentTheme === 'light' ? '🌙' : '☀️';
+                    const text = this.currentTheme === 'light' ? '暗色' : '亮色';
+                    themeToggle.innerHTML = `${icon} ${text}`;
+                }
+            }
+        }
+
+        // 在页面加载前就应用主题，避免闪烁
+        (function() {
+            const savedTheme = localStorage.getItem('theme-mode') || 'light';
+            document.documentElement.setAttribute('theme-mode', savedTheme);
+        })();
+
+        // 初始化主题管理器
+        const loginThemeManager = new LoginThemeManager();
+    </script>
+</body>
+</html>
+
+
+
+
