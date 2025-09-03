@@ -279,7 +279,12 @@ async def create_evaluation(
     support_file_url = None
     if support_file and support_file.filename:
         try:
-            support_file_url = await file_service.upload_file(support_file, "evaluation-files")
+            file_content = await support_file.read()
+            support_file_url = file_service.upload_file(
+                file_content=file_content,
+                filename=support_file.filename,
+                content_type=support_file.content_type
+            )
         except Exception as e:
             raise HTTPException(status_code=500, detail="文件上传失败")
     
