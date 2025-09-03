@@ -8,7 +8,7 @@ td/
 .cursor/
 .trae/
 .clinerules/
-webapp/
+webapp/*
 # Python 缓存文件
 __pycache__/
 *.py[cod]
