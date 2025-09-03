@@ -132,6 +132,10 @@ class RollbackRequestCreate(BaseModel):
     target_form_id: UUID
     reason: str
 
+class RollbackRequestApprove(BaseModel):
+    approve: bool
+    comment: Optional[str] = None
+
 class RollbackRequestResponse(BaseModel):
     rollback_id: int
     workflow_id: UUID
@@ -217,5 +221,21 @@ class BatchDeleteResponse(BaseModel):
     message: str
     deleted_count: int
     ids: List[int]
+
+# 分页响应模型
+class PaginatedResponse(BaseModel):
+    items: List[Any]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+
+# 回溯申请分页响应模型
+class RollbackRequestPaginatedResponse(BaseModel):
+    items: List[RollbackRequestResponse]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
 
 

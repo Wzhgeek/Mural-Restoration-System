@@ -8,7 +8,7 @@ API路由扩展
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Form as FormField, UploadFile, File
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, and_
+from sqlalchemy import desc, and_, or_, String
 from typing import List, Optional
 from uuid import UUID
 import json
@@ -501,11 +501,14 @@ async def create_rollback_request(
 @router.post("/rollback-requests/{rollback_id}/approve")
 async def approve_rollback_request(
     rollback_id: int,
-    approve: bool = FormField(...),
+    request_data: RollbackRequestApprove,
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """审批回溯申请"""
+    
+    # 从请求数据中获取approve参数
+    approve = request_data.approve
     
     rollback_request = db.query(RollbackRequest).filter(
         RollbackRequest.rollback_id == rollback_id,
@@ -583,9 +586,12 @@ async def approve_rollback_request(
         data={"rollback_id": rollback_id, "approved": approve}
     )
 
-@router.get("/rollback-requests", response_model=List[RollbackRequestResponse])
+@router.get("/rollback-requests", response_model=RollbackRequestPaginatedResponse)
 async def get_rollback_requests(
     status: Optional[str] = None,
+    search: Optional[str] = None,
+    page: int = 1,
+    limit: int = 20,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -600,25 +606,50 @@ async def get_rollback_requests(
     if current_user.role.role_key == 'restorer':
         query = query.filter(RollbackRequest.requester_id == current_user.user_id)
     
-    if status:
+    # 状态筛选
+    if status and status != 'all':
         query = query.filter(RollbackRequest.status == status)
     
-    requests = query.order_by(desc(RollbackRequest.created_at)).all()
+    # 搜索筛选
+    if search:
+        query = query.join(User, RollbackRequest.requester_id == User.user_id).filter(
+            or_(
+                RollbackRequest.reason.contains(search),
+                User.full_name.contains(search),
+                RollbackRequest.workflow_id.cast(String).contains(search)
+            )
+        )
     
-    return [
-        RollbackRequestResponse(
-            rollback_id=r.rollback_id,
-            workflow_id=r.workflow_id,
-            requester_name=r.requester.full_name,
-            target_form_id=r.target_form_id,
-            reason=r.reason,
-            support_file_url=r.support_file_url,
-            status=r.status,
-            approver_name=r.approver.full_name if r.approver else None,
-            approved_at=r.approved_at,
-            created_at=r.created_at
-        ) for r in requests
-    ]
+    # 获取总数
+    total_count = query.count()
+    
+    # 分页
+    offset = (page - 1) * limit
+    requests = query.order_by(desc(RollbackRequest.created_at)).offset(offset).limit(limit).all()
+    
+    # 计算总页数
+    total_pages = (total_count + limit - 1) // limit
+    
+    return RollbackRequestPaginatedResponse(
+        items=[
+            RollbackRequestResponse(
+                rollback_id=r.rollback_id,
+                workflow_id=r.workflow_id,
+                requester_name=r.requester.full_name,
+                target_form_id=r.target_form_id,
+                reason=r.reason,
+                support_file_url=r.support_file_url,
+                status=r.status,
+                approver_name=r.approver.full_name if r.approver else None,
+                approved_at=r.approved_at,
+                created_at=r.created_at
+            ) for r in requests
+        ],
+        total=total_count,
+        page=page,
+        limit=limit,
+        total_pages=total_pages
+    )
 
 @router.get("/rollback-requests/{rollback_id}", response_model=RollbackRequestResponse)
 async def get_rollback_request_detail(
