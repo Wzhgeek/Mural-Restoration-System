@@ -588,6 +588,9 @@ async def get_rollback_requests(
     
     query = db.query(RollbackRequest)
     
+    # 过滤已删除的记录
+    query = query.filter(RollbackRequest.deleted_at.is_(None))
+    
     # 根据角色过滤
     if current_user.role.role_key == 'restorer':
         query = query.filter(RollbackRequest.requester_id == current_user.user_id)
@@ -621,7 +624,8 @@ async def get_rollback_request_detail(
     """获取回溯申请详情"""
     
     rollback_request = db.query(RollbackRequest).filter(
-        RollbackRequest.rollback_id == rollback_id
+        RollbackRequest.rollback_id == rollback_id,
+        RollbackRequest.deleted_at.is_(None)  # 过滤已删除的记录
     ).first()
     
     if not rollback_request:
@@ -773,4 +777,200 @@ async def admin_delete_form(
         success=True,
         message="表单已删除",
         data={"form_id": str(form_id)}
+    )
+
+# 删除回溯历史API
+@router.delete("/rollback-requests/{rollback_id}")
+async def delete_rollback_request(
+    rollback_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """删除回溯申请记录"""
+    
+    rollback_request = db.query(RollbackRequest).filter(
+        RollbackRequest.rollback_id == rollback_id,
+        RollbackRequest.deleted_at.is_(None)  # 过滤已删除的记录
+    ).first()
+    
+    if not rollback_request:
+        raise HTTPException(status_code=404, detail="回溯申请不存在")
+    
+    # 权限检查：只有申请人、管理员可以删除
+    if (current_user.role.role_key != 'admin' and 
+        rollback_request.requester_id != current_user.user_id):
+        raise HTTPException(status_code=403, detail="无权限删除此回溯申请")
+    
+    # 检查状态：只有pending状态的申请可以删除
+    if rollback_request.status != 'pending':
+        raise HTTPException(status_code=400, detail="只能删除待审批的回溯申请")
+    
+    # 软删除：设置deleted_at字段
+    rollback_request.deleted_at = func.now()
+    db.commit()
+    
+    return ResponseModel(
+        success=True,
+        message="回溯申请已删除",
+        data={"rollback_id": rollback_id}
+    )
+
+# 管理员强制删除回溯历史API
+@router.delete("/admin/rollback-requests/{rollback_id}")
+async def admin_delete_rollback_request(
+    rollback_id: int,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """管理员强制删除回溯申请记录"""
+    
+    rollback_request = db.query(RollbackRequest).filter(
+        RollbackRequest.rollback_id == rollback_id,
+        RollbackRequest.deleted_at.is_(None)  # 过滤已删除的记录
+    ).first()
+    
+    if not rollback_request:
+        raise HTTPException(status_code=404, detail="回溯申请不存在")
+    
+    # 管理员可以删除任何状态的回溯申请
+    # 软删除：设置deleted_at字段
+    rollback_request.deleted_at = func.now()
+    db.commit()
+    
+    return ResponseModel(
+        success=True,
+        message="回溯申请已删除",
+        data={"rollback_id": rollback_id}
+    )
+
+# 删除评估历史API
+@router.delete("/evaluations/{evaluation_id}")
+async def delete_evaluation(
+    evaluation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """删除评估记录"""
+    
+    evaluation = db.query(Evaluation).filter(
+        Evaluation.evaluate_id == evaluation_id
+    ).first()
+    
+    if not evaluation:
+        raise HTTPException(status_code=404, detail="评估记录不存在")
+    
+    # 权限检查：只有评估人、管理员可以删除
+    if (current_user.role.role_key != 'admin' and 
+        evaluation.evaluator_id != current_user.user_id):
+        raise HTTPException(status_code=403, detail="无权限删除此评估记录")
+    
+    # 检查评估时间：只能删除24小时内的评估记录
+    from datetime import datetime, timedelta
+    time_limit = datetime.now() - timedelta(hours=24)
+    if evaluation.created_at < time_limit:
+        raise HTTPException(status_code=400, detail="只能删除24小时内的评估记录")
+    
+    # 直接删除评估记录
+    db.delete(evaluation)
+    db.commit()
+    
+    return ResponseModel(
+        success=True,
+        message="评估记录已删除",
+        data={"evaluation_id": evaluation_id}
+    )
+
+# 管理员强制删除评估历史API
+@router.delete("/admin/evaluations/{evaluation_id}")
+async def admin_delete_evaluation(
+    evaluation_id: int,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """管理员强制删除评估记录"""
+    
+    evaluation = db.query(Evaluation).filter(
+        Evaluation.evaluate_id == evaluation_id
+    ).first()
+    
+    if not evaluation:
+        raise HTTPException(status_code=404, detail="评估记录不存在")
+    
+    # 管理员可以删除任何评估记录
+    db.delete(evaluation)
+    db.commit()
+    
+    return ResponseModel(
+        success=True,
+        message="评估记录已删除",
+        data={"evaluation_id": evaluation_id}
+    )
+
+# 批量删除回溯历史API
+@router.post("/admin/rollback-requests/batch-delete", response_model=BatchDeleteResponse)
+async def admin_batch_delete_rollback_requests(
+    request_data: BatchDeleteRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """管理员批量删除回溯申请记录"""
+    
+    rollback_ids = request_data.ids
+    
+    # 查询所有要删除的回溯申请（过滤已删除的记录）
+    rollback_requests = db.query(RollbackRequest).filter(
+        RollbackRequest.rollback_id.in_(rollback_ids),
+        RollbackRequest.deleted_at.is_(None)
+    ).all()
+    
+    if not rollback_requests:
+        raise HTTPException(status_code=404, detail="未找到要删除的回溯申请")
+    
+    # 批量软删除
+    deleted_count = 0
+    for request in rollback_requests:
+        request.deleted_at = func.now()
+        deleted_count += 1
+    
+    db.commit()
+    
+    return BatchDeleteResponse(
+        success=True,
+        message=f"成功删除{deleted_count}条回溯申请记录",
+        deleted_count=deleted_count,
+        ids=rollback_ids
+    )
+
+# 批量删除评估历史API
+@router.post("/admin/evaluations/batch-delete", response_model=BatchDeleteResponse)
+async def admin_batch_delete_evaluations(
+    request_data: BatchDeleteRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """管理员批量删除评估记录"""
+    
+    evaluation_ids = request_data.ids
+    
+    # 查询所有要删除的评估记录
+    evaluations = db.query(Evaluation).filter(
+        Evaluation.evaluate_id.in_(evaluation_ids)
+    ).all()
+    
+    if not evaluations:
+        raise HTTPException(status_code=404, detail="未找到要删除的评估记录")
+    
+    # 批量删除
+    deleted_count = 0
+    for evaluation in evaluations:
+        db.delete(evaluation)
+        deleted_count += 1
+    
+    db.commit()
+    
+    return BatchDeleteResponse(
+        success=True,
+        message=f"成功删除{deleted_count}条评估记录",
+        deleted_count=deleted_count,
+        ids=evaluation_ids
     )

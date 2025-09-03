@@ -199,4 +199,23 @@ class FileUploadResponse(BaseModel):
     file_size: int
     content_type: str
 
+# 批量删除请求模型
+class BatchDeleteRequest(BaseModel):
+    ids: List[int]
+    
+    @validator('ids')
+    def validate_ids(cls, v):
+        if not v:
+            raise ValueError('ID列表不能为空')
+        if len(v) > 100:
+            raise ValueError('批量删除数量不能超过100条')
+        return v
+
+# 批量删除响应模型
+class BatchDeleteResponse(BaseModel):
+    success: bool
+    message: str
+    deleted_count: int
+    ids: List[int]
+
 
