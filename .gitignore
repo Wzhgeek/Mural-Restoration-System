@@ -8,7 +8,7 @@ td/
 .cursor/
 .trae/
 .clinerules/
-webapp/*
+webapp/
 # Python 缓存文件
 __pycache__/
 *.py[cod]
@@ -80,3 +80,10 @@ static/uploads/
 # 配置文件备份
 *.bak
 *.backup
+webapp/package-lock.json
+webapp/src/App.vue
+webapp/package-lock.json
+webapp/package.json
+webapp/vite.config.js
+webapp/src/main.js
+webapp/src/style.css
