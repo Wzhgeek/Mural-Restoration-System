@@ -66,7 +66,7 @@
                 theme="primary" 
                 variant="text" 
                 size="small" 
-                @click="showCreateFormModal(row.workflow_id)"
+                @click="startRestorationFlow(row.workflow_id)"
               >
                 提交表单
               </t-button>
@@ -109,8 +109,11 @@
     <t-dialog
       v-model:visible="workflowDetailsVisible"
       header="工作流详情"
-      width="1000px"
+      width="90vw"
+      height="85vh"
       :footer="false"
+      class="workflow-details-dialog"
+      :style="{ maxWidth: '1400px', maxHeight: '900px' }"
     >
       <div v-if="workflowDetails" class="workflow-details">
         <div class="workflow-info">
@@ -131,15 +134,15 @@
         <t-divider />
 
         <div class="workflow-content">
-          <t-row :gutter="[24, 24]">
+          <t-row :gutter="[24, 24]" class="workflow-row">
             <!-- 表单列表 -->
-            <t-col :xs="12" :xl="8">
-              <t-card title="修复表单历史" :bordered="false">
+            <t-col :xs="12" :xl="8" class="workflow-col">
+              <t-card title="修复表单历史" :bordered="false" class="forms-card">
                 <div v-if="workflowForms.length === 0" class="empty-forms">
                   <t-icon name="inbox" size="32px" />
                   <p>暂无表单</p>
                 </div>
-                <div v-else class="forms-list">
+                <div v-else class="forms-list" ref="formsListRef">
                   <div 
                     v-for="(form, index) in workflowForms" 
                     :key="form.form_id"
@@ -213,8 +216,8 @@
             </t-col>
             
             <!-- 评估意见 -->
-            <t-col :xs="12" :xl="4">
-              <t-card title="评估意见" :bordered="false">
+            <t-col :xs="12" :xl="4" class="workflow-col">
+              <t-card title="评估意见" :bordered="false" class="evaluations-card">
                 <div v-if="workflowEvaluations.length === 0" class="empty-evaluations">
                   <t-icon name="inbox" size="32px" />
                   <p>暂无评估</p>
@@ -264,6 +267,7 @@
       v-model:visible="createFormVisible"
       header="提交修复表单"
       width="800px"
+      overflow="hidden"
       :footer="false"
     >
       <t-form ref="createFormForm" :model="formData" :rules="formRules" @submit="handleSubmitForm">
@@ -516,7 +520,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { getWorkflows, createWorkflow, getWorkflowForms, getWorkflowEvaluations, submitForm, requestRollback as apiRequestRollback, finalizeWorkflow as apiFinalizeWorkflow, submitEvaluation, getPrivacyAgreement } from '@/api/restoration'
 import Layout from '@/components/Layout.vue'
@@ -527,6 +532,8 @@ import Layout from '@/components/Layout.vue'
  * @email wangzh011031@163.com
  * @date 2025
  */
+
+const router = useRouter()
 
 // 响应式数据
 const loading = ref(false)
@@ -580,6 +587,9 @@ const workflowForms = ref([])
 const workflowEvaluations = ref([])
 const privacyAgreement = ref('')
 const canAgree = ref(false)
+
+// 表单列表引用
+const formsListRef = ref(null)
 
 // 分页配置
 const paginationConfig = reactive({
@@ -679,31 +689,60 @@ const viewWorkflowDetails = async (workflowId) => {
     workflowForms.value = Array.isArray(formsResponse) ? formsResponse : (formsResponse.data || [])
     workflowEvaluations.value = Array.isArray(evaluationsResponse) ? evaluationsResponse : (evaluationsResponse.data || [])
     workflowDetailsVisible.value = true
+    
+    // 等待DOM更新后初始化滚动
+    nextTick(() => {
+      initScrollBehavior()
+    })
   } catch (error) {
     console.error('加载工作流详情失败:', error)
     MessagePlugin.error('加载工作流详情失败: ' + (error.response?.data?.detail || error.message))
   }
 }
 
-const showCreateFormModal = async (workflowId) => {
-  // 显示保密协议
-  const shouldProceed = await showPrivacyAgreement()
-  if (!shouldProceed) return
+// 初始化滚动行为
+const initScrollBehavior = () => {
+  if (formsListRef.value) {
+    // 设置初始滚动位置，显示略大于单个form-item的高度
+    const formItemHeight = 200 // 与CSS中min-height一致
+    const initialScrollHeight = formItemHeight + 50 // 略大于单个form-item的高度
+    formsListRef.value.scrollTop = 0
+    
+    // 添加滚动事件监听，实现平滑滚动到form-item边界
+    formsListRef.value.addEventListener('scroll', handleFormsScroll)
+  }
+}
+
+// 处理表单列表滚动事件
+const handleFormsScroll = (event) => {
+  const container = event.target
+  const scrollTop = container.scrollTop
+  const formItemHeight = 216 // 200px min-height + 16px margin-bottom
   
-  formData.workflow_id = workflowId
-  // 重置表单数据
-  Object.assign(formData, {
-    workflow_id: workflowId,
-    image_file: [],
-    image_desc: '',
-    image_desc_file: [],
-    restoration_opinion: '',
-    opinion_tags: '',
-    opinion_file: [],
-    remark: '',
-    attachment_file: []
-  })
-  createFormVisible.value = true
+  // 计算当前应该滚动到的form-item索引
+  const currentIndex = Math.round(scrollTop / formItemHeight)
+  const targetScrollTop = currentIndex * formItemHeight
+  
+  // 平滑滚动到最近的form-item边界
+  if (Math.abs(scrollTop - targetScrollTop) > 5) {
+    container.scrollTo({
+      top: targetScrollTop,
+      behavior: 'smooth'
+    })
+  }
+}
+
+// 使用新的流程页面
+const startRestorationFlow = (workflowId) => {
+  // 跳转到新的修复提交流程
+  router.push(`/restoration-flow/${workflowId}/privacy`)
+}
+
+// 保留旧的方法作为备用（可在后续版本中删除）
+const showCreateFormModal = async (workflowId) => {
+  // 提示用户使用新流程
+  MessagePlugin.info('正在跳转到新的修复提交流程...')
+  startRestorationFlow(workflowId)
 }
 
 const handleSubmitForm = async () => {
@@ -943,6 +982,13 @@ const downloadFile = (url) => {
   window.open(url, '_blank')
 }
 
+// 清理滚动事件监听器
+const cleanupScrollListener = () => {
+  if (formsListRef.value) {
+    formsListRef.value.removeEventListener('scroll', handleFormsScroll)
+  }
+}
+
 // 组件挂载时初始化
 onMounted(() => {
   // 获取当前用户信息
@@ -953,9 +999,17 @@ onMounted(() => {
   
   loadWorkflows()
 })
+
+// 组件卸载时清理
+onUnmounted(() => {
+  cleanupScrollListener()
+})
 </script>
 
 <style scoped>
+:deep(.t-dialog__body) {
+  overflow: hidden;
+}
 .restoration-page {
   padding: 0;
 }
@@ -1012,17 +1066,116 @@ onMounted(() => {
   font-size: 16px;
 }
 
+/* 工作流详情对话框样式 */
+.workflow-details-dialog :deep(.t-dialog__body) {
+  height: calc(85vh - 120px);
+  overflow: hidden;
+  padding: 0;
+}
+
 .workflow-details {
-  max-height: 70vh;
-  overflow-y: auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .workflow-info {
   margin-bottom: 16px;
+  padding: 20px;
+  flex-shrink: 0;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .workflow-content {
-  margin-top: 16px;
+  flex: 1;
+  overflow: hidden;
+  padding: 0 20px 20px 20px;
+  min-height: 0;
+}
+
+.forms-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.forms-card :deep(.t-card__body) {
+  flex: 1;
+  overflow: hidden;
+  padding: 16px;
+}
+
+.forms-list {
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.form-item {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  transition: all 0.2s ease;
+  scroll-margin-top: 16px;
+}
+
+.form-item:hover {
+  border-color: #0052d9;
+  box-shadow: 0 2px 8px rgba(0, 82, 217, 0.1);
+}
+
+.form-item:last-child {
+  margin-bottom: 0;
+}
+
+.evaluations-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.evaluations-card :deep(.t-card__body) {
+  flex: 1;
+  overflow: hidden;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.evaluations-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-bottom: 16px;
+}
+
+.evaluation-item {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  transition: all 0.2s ease;
+  scroll-margin-top: 16px;
+}
+
+.evaluation-item:hover {
+  border-color: #0052d9;
+  box-shadow: 0 2px 8px rgba(0, 82, 217, 0.1);
+}
+
+.evaluation-item:last-child {
+  margin-bottom: 0;
+}
+
+.evaluation-actions {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
 }
 
 .empty-forms,
@@ -1033,15 +1186,61 @@ onMounted(() => {
   justify-content: center;
   padding: 32px;
   color: #6b7280;
+  height: 100%;
 }
 
-.forms-list,
-.evaluations-list {
-  max-height: 400px;
+/* 表单卡片样式 */
+.forms-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.forms-card :deep(.t-card__body) {
+  flex: 1;
+  overflow: hidden;
+  padding: 16px;
+}
+
+.forms-list {
+  height: 100%;
   overflow-y: auto;
+  scroll-behavior: smooth;
+  scroll-snap-type: y mandatory;
 }
 
-.form-item,
+/* 评估卡片样式 */
+.evaluations-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.evaluations-card :deep(.t-card__body) {
+  flex: 1;
+  overflow: hidden;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.evaluations-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: calc(100% - 60px);
+}
+
+.form-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #f9fafb;
+  min-height: 200px;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
 .evaluation-item {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -1098,6 +1297,49 @@ onMounted(() => {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+/* 确保行布局固定高度 */
+.workflow-row {
+  height: 100%;
+  margin: 0 !important;
+}
+
+.workflow-col {
+  height: 100%;
+  padding-bottom: 0 !important;
+}
+
+.workflow-content :deep(.t-row) {
+  height: 100%;
+}
+
+.workflow-content :deep(.t-col) {
+  height: 100%;
+}
+
+/* 优化滚动条样式 */
+.forms-list::-webkit-scrollbar,
+.evaluations-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.forms-list::-webkit-scrollbar-track,
+.evaluations-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.forms-list::-webkit-scrollbar-thumb,
+.evaluations-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.forms-list::-webkit-scrollbar-thumb:hover,
+.evaluations-list::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .dialog-footer {

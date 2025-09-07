@@ -2,7 +2,7 @@
   <t-header class="dashboard-header">
     <div class="header-content">
       <div class="header-left">
-        <h2 class="page-title">{{ getPageTitle() }}</h2>
+        <h2 class="page-title">{{ pageTitle }}</h2>
       </div>
       <div class="header-right">
         <div class="user-info">
@@ -31,7 +31,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
 /**
@@ -58,9 +58,29 @@ const pageTitles = {
   'profile': '个人中心'
 }
 
-// 计算属性
+// 响应式页面标题
+const pageTitle = ref('')
+
+// 更新页面标题的函数
+const updatePageTitle = () => {
+  pageTitle.value = getPageTitle()
+}
+
+// 获取页面标题的函数
 const getPageTitle = () => {
   const path = route.path
+  
+  // 修复提交流程页面标题
+  if (path.startsWith('/restoration-flow/')) {
+    if (path.includes('/privacy')) return '修复提交流程 - 保密协议'
+    if (path.includes('/form')) return '修复提交流程 - 表单填写'
+    if (path.includes('/image-edit')) return '修复提交流程 - 图片编辑'
+    if (path.includes('/confirm')) return '修复提交流程 - 信息确认'
+    if (path.includes('/success')) return '修复提交流程 - 提交成功'
+    return '修复提交流程'
+  }
+  
+  // 普通页面标题
   if (path === '/dashboard') return '仪表板'
   if (path === '/restoration') return '修复提交'
   if (path === '/management') return '修复管理'
@@ -81,6 +101,11 @@ const handleLogout = () => {
   router.push('/login')
 }
 
+// 监听路由变化，更新页面标题
+watch(() => route.path, () => {
+  updatePageTitle()
+}, { immediate: true })
+
 // 组件挂载时初始化
 onMounted(() => {
   // 获取当前用户信息
@@ -88,6 +113,9 @@ onMounted(() => {
   if (user) {
     currentUser.value = JSON.parse(user)
   }
+  
+  // 初始化页面标题
+  updatePageTitle()
 })
 </script>
 

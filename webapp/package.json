@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "echarts": "^5.4.3",
+    "fabric": "^6.7.1",
     "pinia": "^3.0.3",
     "tdesign-vue-next": "^1.16.1",
     "vue": "^3.5.18",
@@ -17,8 +18,8 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.1",
+    "axios": "^1.7.9",
     "less": "^4.4.1",
-    "vite": "^7.1.2",
-    "axios": "^1.7.9"
+    "vite": "^7.1.2"
   }
 }
