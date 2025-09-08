@@ -128,7 +128,11 @@
               </t-tag>
             </t-descriptions-item>
             <t-descriptions-item label="创建时间">{{ formatDate(workflowDetails.created_at) }}</t-descriptions-item>
+            <t-descriptions-item label="更新时间">{{ formatDate(workflowDetails.updated_at) }}</t-descriptions-item>
           </t-descriptions>
+          <div v-if="workflowDetails.description" class="workflow-description">
+            <strong>描述：</strong>{{ workflowDetails.description }}
+          </div>
         </div>
 
         <t-divider />
@@ -170,8 +174,28 @@
                         <strong>图片描述：</strong>{{ form.image_desc }}
                       </div>
                       
+                      <div v-if="form.image_desc_file" class="form-field">
+                        <strong>图片描述附件：</strong>
+                        <t-button theme="primary" variant="text" size="small" @click="downloadFile(form.image_desc_file)">
+                          <template #icon>
+                            <t-icon name="download" />
+                          </template>
+                          下载附件
+                        </t-button>
+                      </div>
+                      
                       <div v-if="form.restoration_opinion" class="form-field">
                         <strong>修复意见：</strong>{{ form.restoration_opinion }}
+                      </div>
+                      
+                      <div v-if="form.opinion_file" class="form-field">
+                        <strong>修复意见附件：</strong>
+                        <t-button theme="primary" variant="text" size="small" @click="downloadFile(form.opinion_file)">
+                          <template #icon>
+                            <t-icon name="download" />
+                          </template>
+                          下载附件
+                        </t-button>
                       </div>
                       
                       <div v-if="form.opinion_tags && form.opinion_tags.length > 0" class="form-field">
@@ -185,6 +209,16 @@
                       
                       <div v-if="form.remark" class="form-field">
                         <strong>备注：</strong>{{ form.remark }}
+                      </div>
+                      
+                      <div v-if="form.attachment" class="form-field">
+                        <strong>其他附件：</strong>
+                        <t-button theme="primary" variant="text" size="small" @click="downloadFile(form.attachment)">
+                          <template #icon>
+                            <t-icon name="download" />
+                          </template>
+                          下载附件
+                        </t-button>
                       </div>
                       
                       <div class="form-actions">
@@ -238,11 +272,12 @@
                     </div>
                     
                     <div v-if="evaluation.evaluation_file" class="evaluation-file">
+                      <strong>评估文件：</strong>
                       <t-button theme="primary" variant="text" size="small" @click="downloadFile(evaluation.evaluation_file)">
                         <template #icon>
                           <t-icon name="download" />
                         </template>
-                        查看文件
+                        下载文件
                       </t-button>
                     </div>
                     
@@ -1093,6 +1128,15 @@ onUnmounted(() => {
   border-bottom: 1px solid #e5e7eb;
 }
 
+.workflow-description {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  color: #374151;
+  line-height: 1.5;
+}
+
 .workflow-content {
   flex: 1;
   overflow: hidden;
@@ -1281,6 +1325,11 @@ onUnmounted(() => {
 .form-field {
   margin-bottom: 8px;
   color: #374151;
+}
+
+.form-field strong {
+  color: #1f2937;
+  font-weight: 600;
 }
 
 .form-actions {

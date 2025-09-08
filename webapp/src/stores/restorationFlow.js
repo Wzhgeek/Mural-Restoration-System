@@ -7,6 +7,7 @@
 
 import { defineStore } from 'pinia'
 import { MessagePlugin } from 'tdesign-vue-next'
+import storageManager from '@/utils/storageManager'
 
 export const useRestorationFlowStore = defineStore('restorationFlow', {
   state: () => ({
@@ -274,26 +275,21 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
     // 标记工作流已提交（用于后续清空数据）
     markWorkflowSubmitted(workflowId) {
       const key = `workflow_submitted_${workflowId}`
-      localStorage.setItem(key, JSON.stringify({
+      storageManager.setItem(key, {
         submitted: true,
         timestamp: Date.now()
-      }))
+      }, false)
     },
     
     // 检查工作流是否已提交
     isWorkflowSubmitted(workflowId) {
       const key = `workflow_submitted_${workflowId}`
-      const data = localStorage.getItem(key)
+      const data = storageManager.getItem(key)
       
       if (data) {
-        try {
-          const parsed = JSON.parse(data)
-          // 检查是否在24小时内提交过
-          const isRecent = Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000
-          return parsed.submitted && isRecent
-        } catch (error) {
-          return false
-        }
+        // 检查是否在24小时内提交过
+        const isRecent = Date.now() - data.timestamp < 24 * 60 * 60 * 1000
+        return data.submitted && isRecent
       }
       return false
     },
@@ -302,20 +298,27 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
     saveToStorage() {
       if (!this.workflowId) return
       
+      // 检查是否需要清理存储
+      if (storageManager.shouldCleanup()) {
+        storageManager.cleanupStorage()
+      }
+      
       const data = {
         workflowId: this.workflowId,
         currentStep: this.currentStep,
-        formData: this.formData,
+        formData: this.sanitizeFormData(this.formData), // 清理文件对象
         privacyAccepted: this.privacyAccepted,
         imageEditData: {
-          ...this.imageEditData,
+          originalImage: this.imageEditData.originalImage, // 只保存URL，不保存文件对象
+          editedImage: this.imageEditData.editedImage, // 只保存URL，不保存文件对象
           fabricData: this.imageEditData.fabricData // 保存 fabric 数据
         },
         hasChanges: this.hasChanges,
         timestamp: Date.now()
       }
       
-      localStorage.setItem(`restoration_flow_${this.workflowId}`, JSON.stringify(data))
+      const key = `restoration_flow_${this.workflowId}`
+      storageManager.setItem(key, data, false) // 不显示警告，避免频繁提示
     },
     
     // 从本地存储加载
@@ -323,34 +326,17 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
       if (!this.workflowId) return false
       
       const key = `restoration_flow_${this.workflowId}`
-      const data = localStorage.getItem(key)
+      const data = storageManager.getItem(key)
       
       if (data) {
-        try {
-          const parsed = JSON.parse(data)
-          
-          // 检查数据是否过期（24小时）
-          const isExpired = Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000
-          
-          if (!isExpired) {
-            this.currentStep = parsed.currentStep || 0
-            this.formData = { ...this.formData, ...parsed.formData }
-            this.privacyAccepted = parsed.privacyAccepted || false
-            this.imageEditData = { ...this.imageEditData, ...parsed.imageEditData }
-            this.hasChanges = parsed.hasChanges || false
-            
-            console.log('从本地存储恢复修复流程数据')
-            return true
-          } else {
-            // 数据过期，清理
-            this.removeFromStorage()
-            return false
-          }
-        } catch (error) {
-          console.error('解析本地存储数据失败:', error)
-          this.removeFromStorage()
-          return false
-        }
+        this.currentStep = data.currentStep || 0
+        this.formData = { ...this.formData, ...data.formData }
+        this.privacyAccepted = data.privacyAccepted || false
+        this.imageEditData = { ...this.imageEditData, ...data.imageEditData }
+        this.hasChanges = data.hasChanges || false
+        
+        console.log('从本地存储恢复修复流程数据')
+        return true
       }
       return false
     },
@@ -360,16 +346,11 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
       if (!this.workflowId) return true
       
       const key = `restoration_flow_${this.workflowId}`
-      const data = localStorage.getItem(key)
+      const data = storageManager.getItem(key)
       
       if (data) {
-        try {
-          const parsed = JSON.parse(data)
-          const isExpired = Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000
-          return isExpired
-        } catch (error) {
-          return true
-        }
+        const isExpired = Date.now() - data.timestamp > 24 * 60 * 60 * 1000
+        return isExpired
       }
       return true
     },
@@ -400,8 +381,43 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
     // 从本地存储移除
     removeFromStorage() {
       if (this.workflowId) {
-        localStorage.removeItem(`restoration_flow_${this.workflowId}`)
+        storageManager.removeItem(`restoration_flow_${this.workflowId}`)
       }
+    },
+    
+    // 清理表单数据，移除文件对象
+    sanitizeFormData(formData) {
+      const sanitized = { ...formData }
+      
+      // 移除文件对象，只保留文件名和大小信息
+      Object.keys(sanitized).forEach(key => {
+        if (sanitized[key] && typeof sanitized[key] === 'object' && sanitized[key].name) {
+          // 如果是文件对象，只保存基本信息
+          sanitized[key] = {
+            name: sanitized[key].name,
+            size: sanitized[key].size,
+            type: sanitized[key].type,
+            lastModified: sanitized[key].lastModified
+          }
+        }
+      })
+      
+      return sanitized
+    },
+    
+    // 获取存储使用情况
+    getStorageUsage() {
+      return storageManager.getStorageUsage()
+    },
+    
+    // 清理存储空间
+    cleanupStorage() {
+      storageManager.cleanupStorage()
+    },
+    
+    // 强制清理存储空间
+    forceCleanupStorage() {
+      storageManager.forceCleanup()
     }
   }
 })

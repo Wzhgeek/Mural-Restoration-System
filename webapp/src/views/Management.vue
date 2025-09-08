@@ -634,14 +634,17 @@ const showWorkflowDetailDialog = (workflow, forms, evaluations) => {
                 </div>
               ` : ''}
               ${form.image_desc ? `<div style="margin-bottom: 8px;"><strong>图片描述：</strong>${form.image_desc}</div>` : ''}
+              ${form.image_desc_file ? `<div style="margin-bottom: 8px;"><strong>图片描述附件：</strong><a href="${form.image_desc_file}" target="_blank" style="color: #007bff; text-decoration: none;">📄 下载附件</a></div>` : ''}
               ${form.restoration_opinion ? `<div style="margin-bottom: 8px;"><strong>修复意见：</strong>${form.restoration_opinion}</div>` : ''}
+              ${form.opinion_file ? `<div style="margin-bottom: 8px;"><strong>修复意见附件：</strong><a href="${form.opinion_file}" target="_blank" style="color: #007bff; text-decoration: none;">📄 下载附件</a></div>` : ''}
               ${form.opinion_tags && form.opinion_tags.length > 0 ? `
                 <div style="margin-bottom: 8px;">
                   <strong>标签：</strong>
                   ${form.opinion_tags.map(tag => `<span style="background: #e7e7e7; padding: 2px 6px; border-radius: 3px; font-size: 12px; margin-right: 4px;">${tag}</span>`).join('')}
                 </div>
               ` : ''}
-              ${form.remark ? `<div><strong>备注：</strong>${form.remark}</div>` : ''}
+              ${form.remark ? `<div style="margin-bottom: 8px;"><strong>备注：</strong>${form.remark}</div>` : ''}
+              ${form.attachment ? `<div><strong>其他附件：</strong><a href="${form.attachment}" target="_blank" style="color: #007bff; text-decoration: none;">📄 下载附件</a></div>` : ''}
             </div>
           `).join('')}
         </div>
