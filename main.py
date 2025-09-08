@@ -722,8 +722,8 @@ async def get_workflows(
     Returns:
         List[WorkflowResponse]: 工作流列表响应
     """
-    # 构建基础查询
-    query = db.query(Workflow)
+    # 构建基础查询（排除已删除的工作流）
+    query = db.query(Workflow).filter(Workflow.deleted_at.is_(None))
     
     # 根据用户角色进行数据过滤
     if current_user.role.role_key == 'restorer':
@@ -733,15 +733,17 @@ async def get_workflows(
     if status:
         query = query.filter(Workflow.status == status)
     
-    # 按更新时间倒序排列
-    workflows = query.order_by(desc(Workflow.updated_at)).all()
+    # 使用LEFT JOIN确保即使用户不存在也能获取工作流数据
+    workflows = query.join(User, Workflow.initiator_id == User.user_id, isouter=True)\
+                    .order_by(desc(Workflow.updated_at))\
+                    .all()
     
     return [
         WorkflowResponse(
             workflow_id=w.workflow_id,
             title=w.title,
             description=w.description,
-            initiator_name=w.initiator.full_name,
+            initiator_name=w.initiator.full_name if w.initiator else '未知用户',
             current_step=w.current_step,
             status=w.status,
             is_finalized=w.is_finalized,
@@ -761,7 +763,7 @@ async def admin_get_all_workflows(
     db: Session = Depends(get_db)
 ):
     """
-    管理员获取所有工作流列表
+    管理员获取所有工作流列表（不分页）
     
     仅管理员可以访问此接口，获取系统中所有工作流
     
@@ -773,22 +775,24 @@ async def admin_get_all_workflows(
     Returns:
         List[WorkflowResponse]: 所有工作流列表响应
     """
-    # 构建查询
-    query = db.query(Workflow)
+    # 构建查询（排除已删除的工作流）
+    query = db.query(Workflow).filter(Workflow.deleted_at.is_(None))
     
     # 根据状态过滤
     if status:
         query = query.filter(Workflow.status == status)
     
-    # 按更新时间倒序排列
-    workflows = query.order_by(desc(Workflow.updated_at)).all()
+    # 使用LEFT JOIN确保即使用户不存在也能获取工作流数据
+    workflows = query.join(User, Workflow.initiator_id == User.user_id, isouter=True)\
+                    .order_by(desc(Workflow.updated_at))\
+                    .all()
     
     return [
         WorkflowResponse(
             workflow_id=w.workflow_id,
             title=w.title,
             description=w.description,
-            initiator_name=w.initiator.full_name,
+            initiator_name=w.initiator.full_name if w.initiator else '未知用户',
             current_step=w.current_step,
             status=w.status,
             is_finalized=w.is_finalized,
@@ -796,6 +800,94 @@ async def admin_get_all_workflows(
             updated_at=w.updated_at
         ) for w in workflows
     ]
+
+
+@app.get("/api/workflows/paginated", response_model=WorkflowPaginatedResponse)
+async def get_workflows_paginated(
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    page: int = 1,
+    limit: int = 10,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    获取工作流列表（带分页功能）
+    
+    仅管理员可以访问此接口，支持搜索、状态筛选和分页
+    
+    Args:
+        search (Optional[str]): 搜索关键词（搜索标题和描述）
+        status (Optional[str]): 工作流状态过滤条件
+        page (int): 页码，从1开始
+        limit (int): 每页数量，默认10条
+        current_user (User): 当前登录用户（必须是管理员）
+        db (Session): 数据库会话依赖注入
+        
+    Returns:
+        WorkflowPaginatedResponse: 分页工作流列表响应
+    """
+    # 构建基础查询（排除已删除的工作流）
+    query = db.query(Workflow).filter(Workflow.deleted_at.is_(None))
+    
+    # 搜索功能：搜索标题和描述
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            or_(
+                Workflow.title.ilike(search_pattern),
+                Workflow.description.ilike(search_pattern)
+            )
+        )
+    
+    # 根据状态过滤
+    if status:
+        query = query.filter(Workflow.status == status)
+    
+    # 计算总数
+    total = query.count()
+    
+    # 计算总页数
+    total_pages = (total + limit - 1) // limit if total > 0 else 0
+    
+    # 确保页码有效
+    if page < 1:
+        page = 1
+    if page > total_pages and total_pages > 0:
+        page = total_pages
+    
+    # 计算偏移量
+    offset = (page - 1) * limit
+    
+    # 使用LEFT JOIN确保即使用户不存在也能获取工作流数据
+    workflows = query.join(User, Workflow.initiator_id == User.user_id, isouter=True)\
+                    .order_by(desc(Workflow.updated_at))\
+                    .offset(offset)\
+                    .limit(limit)\
+                    .all()
+    
+    # 构建响应数据
+    items = [
+        WorkflowResponse(
+            workflow_id=w.workflow_id,
+            title=w.title,
+            description=w.description,
+            initiator_name=w.initiator.full_name if w.initiator else '未知用户',
+            current_step=w.current_step,
+            status=w.status,
+            is_finalized=w.is_finalized,
+            created_at=w.created_at,
+            updated_at=w.updated_at
+        ) for w in workflows
+    ]
+    
+    return WorkflowPaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        limit=limit,
+        total_pages=total_pages
+    )
 
 
 @app.put("/api/admin/workflows/{workflow_id}", response_model=WorkflowResponse)
@@ -822,8 +914,11 @@ async def admin_update_workflow(
     Raises:
         HTTPException: 当工作流不存在时抛出404错误
     """
-    # 查找目标工作流
-    workflow = db.query(Workflow).filter(Workflow.workflow_id == workflow_id).first()
+    # 查找目标工作流（排除已删除的）
+    workflow = db.query(Workflow).filter(
+        Workflow.workflow_id == workflow_id,
+        Workflow.deleted_at.is_(None)
+    ).first()
     if not workflow:
         raise HTTPException(status_code=404, detail="工作流不存在")
     
@@ -862,9 +957,9 @@ async def admin_delete_workflow(
     db: Session = Depends(get_db)
 ):
     """
-    管理员删除工作流
+    管理员软删除工作流
     
-    仅管理员可以删除工作流，且只能删除没有关联表单的工作流
+    仅管理员可以删除工作流，采用软删除方式，设置deleted_at字段
     
     Args:
         workflow_id (UUID): 工作流唯一标识符
@@ -875,20 +970,18 @@ async def admin_delete_workflow(
         ResponseModel: 删除成功响应
         
     Raises:
-        HTTPException: 当工作流不存在或有关联表单时抛出相应错误
+        HTTPException: 当工作流不存在时抛出相应错误
     """
-    # 查找目标工作流
-    workflow = db.query(Workflow).filter(Workflow.workflow_id == workflow_id).first()
+    # 查找目标工作流（排除已删除的）
+    workflow = db.query(Workflow).filter(
+        Workflow.workflow_id == workflow_id,
+        Workflow.deleted_at.is_(None)
+    ).first()
     if not workflow:
         raise HTTPException(status_code=404, detail="工作流不存在")
     
-    # 检查是否有关联的表单数据
-    form_count = db.query(Form).filter(Form.workflow_id == workflow_id).count()
-    if form_count > 0:
-        raise HTTPException(status_code=400, detail="无法删除包含表单的工作流")
-    
-    # 执行删除操作
-    db.delete(workflow)
+    # 执行软删除操作
+    workflow.deleted_at = func.now()
     db.commit()
     
     return ResponseModel(

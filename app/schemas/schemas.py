@@ -69,6 +69,7 @@ class WorkflowResponse(BaseModel):
     is_finalized: bool
     created_at: datetime
     updated_at: datetime
+    deleted_at: Optional[datetime] = None  # 软删除字段
     
     class Config:
         from_attributes = True
@@ -233,6 +234,14 @@ class PaginatedResponse(BaseModel):
 # 回溯申请分页响应模型
 class RollbackRequestPaginatedResponse(BaseModel):
     items: List[RollbackRequestResponse]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+
+# 工作流分页响应模型
+class WorkflowPaginatedResponse(BaseModel):
+    items: List[WorkflowResponse]
     total: int
     page: int
     limit: int
