@@ -833,12 +833,30 @@ const updateBrushColor = () => {
   if (canvas.value && canvas.value.freeDrawingBrush) {
     canvas.value.freeDrawingBrush.color = brushColor.value
   }
+  
+  // 如果当前是绘制模式，重新设置画笔以应用新颜色
+  if (currentTool.value === 'draw' || currentTool.value === 'highlighter') {
+    const isHighlighter = currentTool.value === 'highlighter'
+    setupBrush('PencilBrush', { 
+      opacity: isHighlighter ? 0.5 : 1, 
+      width: isHighlighter ? brushWidth.value * 2 : brushWidth.value 
+    })
+  }
 }
 
 // 更新画笔粗细
 const updateBrushWidth = () => {
   if (canvas.value && canvas.value.freeDrawingBrush) {
     canvas.value.freeDrawingBrush.width = brushWidth.value
+  }
+  
+  // 如果当前是绘制模式，重新设置画笔以应用新粗细
+  if (currentTool.value === 'draw' || currentTool.value === 'highlighter') {
+    const isHighlighter = currentTool.value === 'highlighter'
+    setupBrush('PencilBrush', { 
+      opacity: isHighlighter ? 0.5 : 1, 
+      width: isHighlighter ? brushWidth.value * 2 : brushWidth.value 
+    })
   }
 }
 
@@ -1926,7 +1944,27 @@ const updateObjectProperty = (property, value) => {
   if (!selectedObject.value || !canvas.value) return
   
   const updates = {}
-  updates[property] = value
+  
+  // 特殊处理颜色属性
+  if (property === 'color') {
+    const obj = selectedObject.value
+    // 根据对象类型设置正确的颜色属性
+    if (obj.type === 'textbox' || obj.type === 'i-text' || obj.type === 'text') {
+      // 文字对象使用fill属性
+      updates.fill = value
+    } else if (obj.stroke !== undefined && obj.stroke !== null) {
+      // 有描边的对象（形状）使用stroke属性
+      updates.stroke = value
+    } else if (obj.fill !== undefined && obj.fill !== null && obj.fill !== 'transparent') {
+      // 有填充的对象使用fill属性
+      updates.fill = value
+    } else {
+      // 默认设置stroke属性
+      updates.stroke = value
+    }
+  } else {
+    updates[property] = value
+  }
   
   selectedObject.value.set(updates)
   canvas.value.renderAll()
@@ -1956,7 +1994,7 @@ const onObjectSelected = (event) => {
   
   // 检查对象是否属于当前活动图层
   const activeLayer = layers.value.find(layer => layer.id === activeLayerId.value)
-  if (activeLayer && !activeLayer.objects.includes(obj)) {
+  if (activeLayer && obj.id && !activeLayer.objects.includes(obj.id)) {
     // 如果对象不属于当前图层，取消选择
     canvas.value.discardActiveObject()
     canvas.value.renderAll()
@@ -2162,7 +2200,7 @@ const bindBasicCanvasEvents = () => {
       const target = canvas.value.findTarget(event.e)
       if (target) {
         const activeLayer = layers.value.find(layer => layer.id === activeLayerId.value)
-        if (activeLayer && !activeLayer.objects.includes(target)) {
+        if (activeLayer && target.id && !activeLayer.objects.includes(target.id)) {
           // 如果对象不属于当前图层，阻止选择
           event.e.preventDefault()
           canvas.value.discardActiveObject()
