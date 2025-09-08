@@ -39,6 +39,13 @@
         评估修复
       </t-menu-item>
 
+      <t-menu-item value="/rollback-approval" v-if="canAccessRollbackApproval">
+        <template #icon>
+          <t-icon name="check-circle" />
+        </template>
+        回溯审批
+      </t-menu-item>
+
       <t-menu-item value="/rollback-history" v-if="canAccessRollbackHistory">
         <template #icon>
           <t-icon name="time" />
@@ -103,6 +110,10 @@ const canAccessEvaluation = computed(() => {
 
 const canAccessRollbackHistory = computed(() => {
   return currentUser.value?.role_key === 'admin' || currentUser.value?.role_key === 'restorer'
+})
+
+const canAccessRollbackApproval = computed(() => {
+  return currentUser.value?.role_key === 'admin'
 })
 
 const canAccessEvaluationHistory = computed(() => {
