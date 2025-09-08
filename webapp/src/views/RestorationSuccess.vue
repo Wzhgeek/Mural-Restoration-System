@@ -98,19 +98,6 @@
         </div>
       </div>
       
-      <!-- 提醒信息 -->
-      <div class="reminder-card">
-        <div class="reminder-header">
-          <t-icon name="notification" />
-          <strong>重要提醒</strong>
-        </div>
-        <ul class="reminder-list">
-          <li>请保存工作流ID以便后续查询和跟踪</li>
-          <li>您可以在"修复管理"页面查看工作流状态</li>
-          <li>系统将通过站内消息通知您评估结果</li>
-          <li>如有疑问，请联系系统管理员</li>
-        </ul>
-      </div>
     </div>
   </div>
 </template>
@@ -277,18 +264,22 @@ onMounted(() => {
 .success-page {
   max-width: 800px;
   margin: 0 auto;
-  min-height: 600px;
+  max-height: 880px;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
 }
 
 .success-container {
   text-align: center;
-  padding: 15px;
+  padding: 20px;
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 .success-icon {
@@ -306,20 +297,20 @@ onMounted(() => {
 .success-description {
   font-size: 16px;
   color: #6b7280;
-  margin: 0 0 32px 0;
+  margin: 0 0 24px 0;
   line-height: 1.6;
 }
 
 .success-details {
   max-width: 400px;
-  margin: 0 auto 32px auto;
+  margin: 0 auto 24px auto;
   text-align: left;
 }
 
 .next-steps {
   text-align: left;
-  margin: 32px 0;
-  padding: 24px;
+  margin: 24px 0;
+  padding: 20px;
   background: #f8f9fa;
   border-radius: 8px;
 }
@@ -376,12 +367,12 @@ onMounted(() => {
   flex-wrap: wrap;
   justify-content: center;
   gap: 16px;
-  margin: 32px 0;
+  margin: 24px 0;
 }
 
 .additional-actions {
-  margin: 32px 0;
-  padding-top: 24px;
+  margin: 24px 0;
+  padding-top: 20px;
   border-top: 1px solid #e5e7eb;
 }
 
@@ -399,34 +390,6 @@ onMounted(() => {
   gap: 16px;
 }
 
-.reminder-card {
-  margin-top: 32px;
-  padding: 20px;
-  background: #fef3c7;
-  border-radius: 8px;
-  text-align: left;
-  border-left: 4px solid #f59e0b;
-}
-
-.reminder-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #d97706;
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-
-.reminder-list {
-  color: #92400e;
-  margin: 0;
-  padding-left: 20px;
-}
-
-.reminder-list li {
-  margin-bottom: 4px;
-  line-height: 1.5;
-}
 
 /* 响应式设计 */
 @media (max-width: 768px) {
