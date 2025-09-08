@@ -70,10 +70,10 @@
           <t-col :xs="24" :md="12">
             <h4 class="section-title">修复方案信息</h4>
             
-            <t-form-item label="修复意见" name="restoration_opinion" help="详细描述修复方案和建议">
+            <t-form-item label="修复意见" name="restoration_opinion">
               <t-textarea 
                 v-model="formData.restoration_opinion" 
-                placeholder="例如：建议先进行表面浮灰清理，然后使用XX材料进行加固处理，最后进行色彩补充..."
+                placeholder="请输入修复意见..."
                 :autosize="{ minRows: 4, maxRows: 8 }"
                 @change="handleFormChange"
               />
@@ -99,7 +99,7 @@
               </div>
             </t-form-item>
             
-            <t-form-item label="修复意见附件" help="可上传修复方案相关文档">
+            <t-form-item label="修复意见附件">
               <t-upload
                 v-model="formData.opinion_file"
                 :auto-upload="false"
@@ -133,7 +133,7 @@
           </t-col>
           
           <t-col :xs="24" :md="12">
-            <t-form-item label="其他附件" help="可上传其他相关文件">
+            <t-form-item label="其他附件">
               <t-upload
                 v-model="formData.attachment_file"
                 :auto-upload="false"
@@ -343,7 +343,7 @@ onMounted(() => {
 
 .page-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 10px;
 }
 
 .page-header h3 {
