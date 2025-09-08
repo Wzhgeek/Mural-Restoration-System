@@ -309,17 +309,18 @@ onUnmounted(() => {
 .flow-content {
   flex: 1;
   margin-bottom: 20px;
-  overflow: hidden;
+  overflow-y: auto;
   min-height: 0;
 }
 
 .flow-actions {
+  
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 0;
-  border-top: 1px solid #e5e7eb;
-  background: #fff;
+  padding: 8px 0;
+  border-top: 1px solid #3870e0;
+  /* background: transparent; */
   flex-shrink: 0;
 }
 
