@@ -109,11 +109,11 @@
     <t-dialog
       v-model:visible="workflowDetailsVisible"
       header="工作流详情"
-      width="90vw"
+      width="50vw"
       height="85vh"
       :footer="false"
       class="workflow-details-dialog"
-      :style="{ maxWidth: '1400px', maxHeight: '900px' }"
+      :style="{ maxWidth: '1200px', maxHeight: '900px' }"
     >
       <div v-if="workflowDetails" class="workflow-details">
         <div class="workflow-info">
@@ -1108,10 +1108,20 @@ onUnmounted(() => {
 }
 
 /* 工作流详情对话框样式 */
+.workflow-details-dialog {
+  width: 70vw !important;
+  max-width: 1200px !important;
+}
+
 .workflow-details-dialog :deep(.t-dialog__body) {
   height: calc(85vh - 120px);
   overflow: hidden;
   padding: 0;
+}
+
+.workflow-details-dialog :deep(.t-dialog) {
+  width: 70vw !important;
+  max-width: 1200px !important;
 }
 
 .workflow-details {
@@ -1472,6 +1482,16 @@ onUnmounted(() => {
 }
 
 /* 响应式设计 */
+@media (max-width: 1200px) {
+  .workflow-details-dialog {
+    width: 80vw !important;
+  }
+  
+  .workflow-details-dialog :deep(.t-dialog) {
+    width: 80vw !important;
+  }
+}
+
 @media (max-width: 768px) {
   .restoration-page {
     padding: 16px;
@@ -1483,6 +1503,20 @@ onUnmounted(() => {
   
   .workflow-details {
     max-height: 60vh;
+  }
+  
+  .workflow-details-dialog {
+    width: 95vw !important;
+    height: 90vh !important;
+  }
+  
+  .workflow-details-dialog :deep(.t-dialog) {
+    width: 95vw !important;
+    height: 90vh !important;
+  }
+  
+  .workflow-details-dialog :deep(.t-dialog__body) {
+    height: calc(90vh - 120px);
   }
   
   .upload-dragger {
