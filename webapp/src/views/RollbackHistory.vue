@@ -306,7 +306,8 @@ const pagination = ref({
   total: 0,
   defaultCurrent: 1,
   showJumper: true,
-  showSizeChanger: true
+  showSizeChanger: true,
+  pageSizeOptions: [5, 10, 20, 50]
 })
 
 // 表格列配置

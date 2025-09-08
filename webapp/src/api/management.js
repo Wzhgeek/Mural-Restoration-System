@@ -18,7 +18,7 @@ import request from './request.js'
  */
 export const getAllWorkflows = (params = {}) => {
   return request({
-    url: '/api/workflows',
+    url: '/api/workflows/paginated',
     method: 'GET',
     params: {
       search: params.search || '',

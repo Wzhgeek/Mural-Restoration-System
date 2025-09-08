@@ -6,6 +6,7 @@ import Evaluation from '../views/Evaluation.vue'
 import Management from '../views/Management.vue'
 import EvaluationHistory from '../views/EvaluationHistory.vue'
 import RollbackHistory from '../views/RollbackHistory.vue'
+import RollbackApproval from '../views/RollbackApproval.vue'
 import Profile from '../views/Profile.vue'
 
 // 修复提交流程组件
@@ -61,6 +62,12 @@ const routes = [
     path: '/evaluation-history',
     name: 'EvaluationHistory',
     component: EvaluationHistory,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/rollback-approval',
+    name: 'RollbackApproval',
+    component: RollbackApproval,
     meta: { requiresAuth: true }
   },
   {
