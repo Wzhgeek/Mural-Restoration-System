@@ -38,16 +38,16 @@
               </t-upload>
             </t-form-item>
             
-            <t-form-item label="图片描述" name="image_desc" help="描述壁画的内容、状态、损坏情况等">
+            <t-form-item label="图片描述" name="image_desc">
               <t-textarea 
                 v-model="formData.image_desc" 
-                placeholder="例如：此壁画位于石窟东壁，描绘佛陀说法场面，画面色彩较为鲜艳，局部有轻微剥落现象..."
+                placeholder="请输入图片描述..."
                 :autosize="{ minRows: 4, maxRows: 8 }"
                 @change="handleFormChange"
               />
             </t-form-item>
             
-            <t-form-item label="图片描述附件" help="可上传相关的文档、报告等">
+            <t-form-item label="图片描述附件">
               <t-upload
                 v-model="formData.image_desc_file"
                 :auto-upload="false"
