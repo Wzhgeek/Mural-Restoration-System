@@ -267,13 +267,14 @@ onUnmounted(() => {
 
 <style scoped>
 .restoration-flow {
-  max-width: 1200px;
+  max-width: 1900px;
   margin: 0 auto;
   padding: 16px;
   height: calc(100vh - 120px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  width: 100%;
 }
 
 .flow-header {
@@ -337,9 +338,22 @@ onUnmounted(() => {
 }
 
 /* 响应式设计 */
+@media (max-width: 1400px) {
+  .restoration-flow {
+    max-width: 1400px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .restoration-flow {
+    max-width: 1200px;
+  }
+}
+
 @media (max-width: 768px) {
   .restoration-flow {
     padding: 16px;
+    max-width: 100%;
   }
   
   .flow-header {
