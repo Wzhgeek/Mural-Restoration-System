@@ -306,14 +306,21 @@ async def get_dashboard_stats(
     # 基础统计数据计算
     # ========================================================================
     
-    # 工作流基础统计
-    total_workflows = db.query(Workflow).count()
-    running_workflows = db.query(Workflow).filter(Workflow.status == 'running').count()
-    finished_workflows = db.query(Workflow).filter(Workflow.status == 'finished').count()
+    # 工作流基础统计（排除已删除的工作流）
+    total_workflows = db.query(Workflow).filter(Workflow.deleted_at.is_(None)).count()
+    running_workflows = db.query(Workflow).filter(
+        Workflow.status == 'running',
+        Workflow.deleted_at.is_(None)
+    ).count()
+    finished_workflows = db.query(Workflow).filter(
+        Workflow.status == 'finished',
+        Workflow.deleted_at.is_(None)
+    ).count()
     
     # 待评估工作流数量（仅管理员和评估专家可见）
     pending_evaluations = db.query(Workflow).filter(
         Workflow.status == 'finished',
+        Workflow.deleted_at.is_(None),
         ~Workflow.evaluations.any()
     ).count() if user_role in ['admin', 'evaluator'] else 0
     
@@ -349,19 +356,22 @@ async def get_dashboard_stats(
     # ========================================================================
     
     if user_role == 'restorer':
-        # 个人工作流统计
+        # 个人工作流统计（排除已删除的工作流）
         my_workflows = db.query(Workflow).filter(
-            Workflow.initiator_id == current_user.user_id
+            Workflow.initiator_id == current_user.user_id,
+            Workflow.deleted_at.is_(None)
         ).count()
         
         my_running_workflows = db.query(Workflow).filter(
             Workflow.initiator_id == current_user.user_id,
-            Workflow.status == 'running'
+            Workflow.status == 'running',
+            Workflow.deleted_at.is_(None)
         ).count()
         
         my_finished_workflows = db.query(Workflow).filter(
             Workflow.initiator_id == current_user.user_id,
-            Workflow.status == 'finished'
+            Workflow.status == 'finished',
+            Workflow.deleted_at.is_(None)
         ).count()
         
         # 个人回溯请求统计
@@ -373,7 +383,8 @@ async def get_dashboard_stats(
         current_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         monthly_submissions = db.query(Workflow).filter(
             Workflow.initiator_id == current_user.user_id,
-            Workflow.created_at >= current_month
+            Workflow.created_at >= current_month,
+            Workflow.deleted_at.is_(None)
         ).count()
         
         # 平均评分（模拟数据，实际应从评估记录计算）
@@ -459,7 +470,8 @@ async def get_dashboard_stats(
         for i in range(7):
             current_date = week_ago + timedelta(days=i)
             count = db.query(Workflow).filter(
-                func.date(Workflow.created_at) == current_date
+                func.date(Workflow.created_at) == current_date,
+                Workflow.deleted_at.is_(None)
             ).count()
             daily_workflows.append(count)
             
@@ -472,7 +484,8 @@ async def get_dashboard_stats(
         last_week_start = week_ago - timedelta(days=7)
         last_week_total = db.query(Workflow).filter(
             func.date(Workflow.created_at) >= last_week_start,
-            func.date(Workflow.created_at) < week_ago
+            func.date(Workflow.created_at) < week_ago,
+            Workflow.deleted_at.is_(None)
         ).count()
         
         # 计算趋势百分比
@@ -988,6 +1001,55 @@ async def admin_delete_workflow(
         success=True,
         message="工作流已删除",
         data={"workflow_id": str(workflow_id)}
+    )
+
+
+@app.post("/api/admin/workflows/batch-delete")
+async def admin_batch_delete_workflows(
+    workflow_ids: List[UUID],
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    管理员批量软删除工作流
+    
+    仅管理员可以批量删除工作流，采用软删除方式
+    
+    Args:
+        workflow_ids (List[UUID]): 工作流ID列表
+        current_user (User): 当前登录用户（必须是管理员）
+        db (Session): 数据库会话依赖注入
+        
+    Returns:
+        ResponseModel: 批量删除结果响应
+    """
+    if not workflow_ids:
+        raise HTTPException(status_code=400, detail="工作流ID列表不能为空")
+    
+    # 查找所有目标工作流（排除已删除的）
+    workflows = db.query(Workflow).filter(
+        Workflow.workflow_id.in_(workflow_ids),
+        Workflow.deleted_at.is_(None)
+    ).all()
+    
+    if not workflows:
+        raise HTTPException(status_code=404, detail="未找到可删除的工作流")
+    
+    # 执行批量软删除操作
+    deleted_count = 0
+    for workflow in workflows:
+        workflow.deleted_at = func.now()
+        deleted_count += 1
+    
+    db.commit()
+    
+    return ResponseModel(
+        success=True,
+        message=f"成功删除 {deleted_count} 个工作流",
+        data={
+            "deleted_count": deleted_count,
+            "total_requested": len(workflow_ids)
+        }
     )
 
 # ============================================================================
