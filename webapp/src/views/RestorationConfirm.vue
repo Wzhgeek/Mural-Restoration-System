@@ -6,124 +6,123 @@
     </div>
     
     <div class="confirm-container">
-      <!-- 基本信息 -->
-      <t-card class="info-section" title="基本信息">
-        <t-descriptions :column="2">
-          <t-descriptions-item label="工作流ID">{{ store.workflowId }}</t-descriptions-item>
-          <t-descriptions-item label="提交时间">{{ currentTime }}</t-descriptions-item>
-          <t-descriptions-item label="保密协议">
-            <t-tag theme="success" variant="light">已同意</t-tag>
-          </t-descriptions-item>
-        </t-descriptions>
-      </t-card>
-      
-      <!-- 图片信息 -->
-      <t-card class="info-section" title="壁画图片信息">
-        <div class="image-info">
-          <div class="image-preview" v-if="imagePreview">
-            <div class="preview-container">
-              <img :src="imagePreview" alt="壁画图片预览" class="preview-image" />
-              <div class="image-overlay" v-if="hasImageEdit">
-                <t-tag theme="primary" variant="light">已编辑</t-tag>
+      <!-- 统一信息卡片 -->
+      <div class="info-card">
+        <div class="card-header">
+          <h4>提交信息确认</h4>
+        </div>
+        <div class="card-content">
+          <!-- 基本信息 -->
+          <div class="section">
+            <h5 class="section-title">基本信息</h5>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="label">工作流ID</span>
+                <span class="value">{{ store.workflowId }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">提交时间</span>
+                <span class="value">{{ currentTime }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">保密协议</span>
+                <t-tag theme="success" variant="light" size="small">已同意</t-tag>
               </div>
             </div>
           </div>
           
-          <div class="image-details">
-            <div class="detail-item" v-if="store.formData.image_desc">
-              <strong>图片描述：</strong>
-              <p class="detail-content">{{ store.formData.image_desc }}</p>
+          <!-- 图片信息 -->
+          <div class="section" v-if="imagePreview || store.formData.image_desc || store.formData.image_desc_file">
+            <h5 class="section-title">壁画图片信息</h5>
+            <div class="image-section">
+              <div class="image-preview" v-if="imagePreview">
+                <img :src="imagePreview" alt="壁画图片预览" class="preview-image" />
+                <t-tag v-if="hasImageEdit" theme="primary" variant="light" size="small" class="edit-tag">已编辑</t-tag>
+              </div>
+              
+              <div class="content-section">
+                <div class="content-item" v-if="store.formData.image_desc">
+                  <span class="label">图片描述</span>
+                  <div class="content-text">{{ store.formData.image_desc }}</div>
+                </div>
+                
+                <div class="content-item" v-if="store.formData.image_desc_file">
+                  <span class="label">图片描述附件</span>
+                  <div class="file-item">
+                    <t-icon name="attach" size="14px" />
+                    <span>{{ getFileName(store.formData.image_desc_file) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 修复方案信息 -->
+          <div class="section" v-if="store.formData.restoration_opinion || formattedTags.length > 0 || store.formData.opinion_file">
+            <h5 class="section-title">修复方案信息</h5>
+            <div class="content-item" v-if="store.formData.restoration_opinion">
+              <span class="label">修复意见</span>
+              <div class="content-text">{{ store.formData.restoration_opinion }}</div>
             </div>
             
-            <div class="detail-item" v-if="store.formData.image_desc_file">
-              <strong>图片描述附件：</strong>
-              <div class="file-info">
-                <t-icon name="attach" />
-                <span>{{ getFileName(store.formData.image_desc_file) }}</span>
+            <div class="content-item" v-if="formattedTags.length > 0">
+              <span class="label">修复标签</span>
+              <div class="tags-list">
+                <t-tag 
+                  v-for="tag in formattedTags" 
+                  :key="tag" 
+                  theme="primary" 
+                  variant="light"
+                  size="small"
+                >
+                  {{ tag }}
+                </t-tag>
               </div>
             </div>
             
-            <div class="detail-item" v-if="!store.formData.image_desc && !store.formData.image_file">
-              <p class="no-data">未上传图片信息</p>
+            <div class="content-item" v-if="store.formData.opinion_file">
+              <span class="label">修复意见附件</span>
+              <div class="file-item">
+                <t-icon name="attach" size="14px" />
+                <span>{{ getFileName(store.formData.opinion_file) }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 其他信息 -->
+          <div class="section" v-if="store.formData.remark || store.formData.attachment_file">
+            <h5 class="section-title">其他信息</h5>
+            <div class="content-item" v-if="store.formData.remark">
+              <span class="label">备注说明</span>
+              <div class="content-text">{{ store.formData.remark }}</div>
+            </div>
+            
+            <div class="content-item" v-if="store.formData.attachment_file">
+              <span class="label">其他附件</span>
+              <div class="file-item">
+                <t-icon name="attach" size="14px" />
+                <span>{{ getFileName(store.formData.attachment_file) }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 图片编辑信息 -->
+          <div class="section" v-if="hasImageEdit">
+            <h5 class="section-title">图片编辑</h5>
+            <div class="content-item">
+              <span class="label">编辑状态</span>
+              <t-tag theme="success" variant="light" size="small">已进行图片编辑</t-tag>
+            </div>
+            
+            <div class="content-item" v-if="store.imageEditData.editedImage">
+              <span class="label">编辑后预览</span>
+              <div class="edited-preview">
+                <img :src="store.imageEditData.editedImage" alt="编辑后图片" class="edited-image" />
+              </div>
             </div>
           </div>
         </div>
-      </t-card>
-      
-      <!-- 修复方案信息 -->
-      <t-card class="info-section" title="修复方案信息">
-        <div class="restoration-info">
-          <div class="detail-item" v-if="store.formData.restoration_opinion">
-            <strong>修复意见：</strong>
-            <p class="detail-content">{{ store.formData.restoration_opinion }}</p>
-          </div>
-          
-          <div class="detail-item" v-if="formattedTags.length > 0">
-            <strong>修复标签：</strong>
-            <div class="tags-container">
-              <t-tag 
-                v-for="tag in formattedTags" 
-                :key="tag" 
-                theme="primary" 
-                variant="light"
-              >
-                {{ tag }}
-              </t-tag>
-            </div>
-          </div>
-          
-          <div class="detail-item" v-if="store.formData.opinion_file">
-            <strong>修复意见附件：</strong>
-            <div class="file-info">
-              <t-icon name="attach" />
-              <span>{{ getFileName(store.formData.opinion_file) }}</span>
-            </div>
-          </div>
-          
-          <div class="detail-item" v-if="!store.formData.restoration_opinion">
-            <p class="no-data">未填写修复意见</p>
-          </div>
-        </div>
-      </t-card>
-      
-      <!-- 其他信息 -->
-      <t-card class="info-section" title="其他信息">
-        <div class="other-info">
-          <div class="detail-item" v-if="store.formData.remark">
-            <strong>备注说明：</strong>
-            <p class="detail-content">{{ store.formData.remark }}</p>
-          </div>
-          
-          <div class="detail-item" v-if="store.formData.attachment_file">
-            <strong>其他附件：</strong>
-            <div class="file-info">
-              <t-icon name="attach" />
-              <span>{{ getFileName(store.formData.attachment_file) }}</span>
-            </div>
-          </div>
-          
-          <div class="detail-item" v-if="!store.formData.remark && !store.formData.attachment_file">
-            <p class="no-data">无其他信息</p>
-          </div>
-        </div>
-      </t-card>
-      
-      <!-- 图片编辑信息 -->
-      <t-card class="info-section" title="图片编辑" v-if="hasImageEdit">
-        <div class="edit-info">
-          <div class="detail-item">
-            <strong>编辑状态：</strong>
-            <t-tag theme="success" variant="light">已进行图片编辑</t-tag>
-          </div>
-          
-          <div class="edit-preview" v-if="store.imageEditData.editedImage">
-            <strong>编辑后预览：</strong>
-            <div class="edited-image-container">
-              <img :src="store.imageEditData.editedImage" alt="编辑后图片" class="edited-image" />
-            </div>
-          </div>
-        </div>
-      </t-card>
+      </div>
       
       <!-- 提交确认 -->
       <div class="submit-section">
@@ -266,8 +265,8 @@ onMounted(() => {
 
 <style scoped>
 .confirm-page {
-  padding: 16px;
-  max-width: 1000px;
+  padding: 20px;
+  max-width: 1200px;
   margin: 0 auto;
   height: calc(100vh - 200px);
   overflow-y: auto;
@@ -275,14 +274,14 @@ onMounted(() => {
 
 .page-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .page-header h3 {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
   color: #1f2937;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
 }
 
 .page-header p {
@@ -294,32 +293,77 @@ onMounted(() => {
 .confirm-container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   min-height: 0;
 }
 
-.info-section {
+/* 信息卡片样式 */
+.info-card {
   background: #fff;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.image-info {
+.card-header {
+  background: #f8f9fa;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.card-header h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+}
+
+.card-content {
+  padding: 16px;
+}
+
+/* 基本信息网格 */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.info-item {
   display: flex;
-  gap: 24px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-item .label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-item .value {
+  font-size: 14px;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+/* 图片区域 */
+.image-section {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
 }
 
 .image-preview {
-  flex-shrink: 0;
-}
-
-.preview-container {
   position: relative;
-  width: 200px;
-  height: 150px;
+  flex-shrink: 0;
+  width: 120px;
+  height: 90px;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
@@ -329,41 +373,71 @@ onMounted(() => {
   object-fit: cover;
 }
 
-.image-overlay {
+.edit-tag {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 4px;
+  right: 4px;
 }
 
-.image-details {
+.content-section {
   flex: 1;
+  min-width: 0;
 }
 
-.detail-item {
-  margin-bottom: 16px;
+/* 章节样式 */
+.section {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.detail-item:last-child {
+.section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #0052d9;
+  display: inline-block;
+}
+
+/* 内容项样式 */
+.content-item {
+  margin-bottom: 12px;
+}
+
+.content-item:last-child {
   margin-bottom: 0;
 }
 
-.detail-item strong {
-  color: #374151;
+.content-item .label {
   display: block;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   margin-bottom: 4px;
 }
 
-.detail-content {
-  color: #6b7280;
-  line-height: 1.6;
-  margin: 0;
+.content-text {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.5;
   background: #f8f9fa;
-  padding: 12px;
+  padding: 8px 12px;
   border-radius: 4px;
   border-left: 3px solid #0052d9;
+  word-break: break-word;
 }
 
-.file-info {
+.file-item {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -371,93 +445,105 @@ onMounted(() => {
   font-size: 14px;
 }
 
-.no-data {
+.empty-text {
   color: #9ca3af;
   font-style: italic;
-  margin: 0;
+  font-size: 14px;
 }
 
-.tags-container {
+.tags-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   margin-top: 4px;
 }
 
-.restoration-info,
-.other-info,
-.edit-info {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.edit-preview {
-  margin-top: 16px;
-}
-
-.edited-image-container {
+/* 编辑后图片预览 */
+.edited-preview {
   margin-top: 8px;
-  max-width: 300px;
+  max-width: 200px;
 }
 
 .edited-image {
   width: 100%;
   height: auto;
-  border-radius: 8px;
+  border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* 提交区域 */
 .submit-section {
   background: #fff;
-  padding: 20px;
+  padding: 16px;
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 2px solid #0052d9;
-  flex-shrink: 0;
-  margin-top: auto;
+  margin-top: 8px;
 }
 
 .submit-warning {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 16px;
+  padding: 12px;
   background: #fef3c7;
   border-radius: 6px;
   color: #d97706;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  font-size: 14px;
 }
 
 .submit-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .image-info {
+  .confirm-page {
+    padding: 16px;
+  }
+  
+  .image-section {
     flex-direction: column;
   }
   
-  .preview-container {
+  .image-preview {
     width: 100%;
-    max-width: 300px;
+    max-width: 200px;
+    height: 120px;
     margin: 0 auto;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
   }
   
   .submit-actions {
     flex-direction: column;
-    gap: 12px;
   }
   
   .submit-actions > * {
     width: 100%;
   }
   
-  .edited-image-container {
+  .edited-preview {
     max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .confirm-container {
+    gap: 12px;
+  }
+  
+  .card-content {
+    padding: 12px;
+  }
+  
+  .card-header {
+    padding: 10px 12px;
   }
 }
 </style>
