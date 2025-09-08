@@ -1010,6 +1010,11 @@ onUnmounted(() => {
 :deep(.t-dialog__body) {
   overflow: hidden;
 }
+
+/* 回溯申请模态框的表单控件内容样式 */
+:deep(.t-form__controls-content) {
+  padding: 0 0 0 10px;
+}
 .restoration-page {
   padding: 0;
 }
