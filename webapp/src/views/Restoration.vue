@@ -1024,10 +1024,11 @@ onUnmounted(() => {
 }
 
 .page-title {
+  /* 顶部间距 */
   font-size: 24px;
   font-weight: 600;
   color: #1f2937;
-  margin: 0 0 8px 0;
+  margin: 24px 0 8px 0;
 }
 
 .page-description {

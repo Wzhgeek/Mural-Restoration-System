@@ -272,32 +272,117 @@ const renderTrendChart = () => {
   }
   
   const option = {
+    backgroundColor: 'transparent',
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '8%',
+      top: '10%',
+      containLabel: true
+    },
     tooltip: {
       trigger: 'axis',
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderColor: '#e6e8eb',
+      borderWidth: 1,
+      textStyle: {
+        color: '#1f2937',
+        fontSize: 13
+      },
+      padding: [12, 16],
+      extraCssText: 'box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12); border-radius: 8px;',
       formatter: function(params) {
         const data = params[0]
-        return `${data.name}: ${data.value}个工作流`
+        return `<div style="font-weight: 600; margin-bottom: 4px;">${data.name}</div>
+                <div style="color: #0052d9;">📊 ${data.value} 个工作流</div>`
       }
     },
     xAxis: {
       type: 'category',
       data: trendData.labels || ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+      axisLine: {
+        lineStyle: {
+          color: '#e6e8eb',
+          width: 1
+        }
+      },
+      axisTick: {
+        show: false
+      },
       axisLabel: {
-        color: '#666'
+        color: '#86909c',
+        fontSize: 12,
+        fontWeight: 500,
+        margin: 12
+      },
+      splitLine: {
+        show: false
       }
     },
     yAxis: {
       type: 'value',
+      axisLine: {
+        show: false
+      },
+      axisTick: {
+        show: false
+      },
       axisLabel: {
-        color: '#666'
+        color: '#86909c',
+        fontSize: 12,
+        fontWeight: 500
+      },
+      splitLine: {
+        lineStyle: {
+          color: '#f0f1f5',
+          width: 1,
+          type: 'dashed'
+        }
       }
     },
     series: [{
       data: trendData.values || [0, 0, 0, 0, 0, 0, 0],
       type: 'line',
       smooth: true,
+      smoothMonotone: 'x',
+      symbol: 'circle',
+      symbolSize: 8,
+      lineStyle: {
+        color: {
+          type: 'linear',
+          x: 0,
+          y: 0,
+          x2: 1,
+          y2: 0,
+          colorStops: [{
+            offset: 0, color: '#667eea'
+          }, {
+            offset: 0.5, color: '#0052d9'
+          }, {
+            offset: 1, color: '#764ba2'
+          }]
+        },
+        width: 3,
+        shadowColor: 'rgba(0, 82, 217, 0.3)',
+        shadowBlur: 8,
+        shadowOffsetY: 2
+      },
       itemStyle: {
-        color: '#0052d9'
+        color: '#0052d9',
+        borderColor: '#ffffff',
+        borderWidth: 3,
+        shadowColor: 'rgba(0, 82, 217, 0.4)',
+        shadowBlur: 10
+      },
+      emphasis: {
+        itemStyle: {
+          color: '#0052d9',
+          borderColor: '#ffffff',
+          borderWidth: 4,
+          shadowColor: 'rgba(0, 82, 217, 0.6)',
+          shadowBlur: 15,
+          scale: 1.2
+        }
       },
       areaStyle: {
         color: {
@@ -307,13 +392,21 @@ const renderTrendChart = () => {
           x2: 0,
           y2: 1,
           colorStops: [{
-            offset: 0, color: 'rgba(0, 82, 217, 0.3)'
+            offset: 0, color: 'rgba(102, 126, 234, 0.25)'
           }, {
-            offset: 1, color: 'rgba(0, 82, 217, 0.05)'
+            offset: 0.3, color: 'rgba(0, 82, 217, 0.15)'
+          }, {
+            offset: 0.7, color: 'rgba(118, 75, 162, 0.08)'
+          }, {
+            offset: 1, color: 'rgba(118, 75, 162, 0.02)'
           }]
-        }
+        },
+        shadowColor: 'rgba(0, 82, 217, 0.1)',
+        shadowBlur: 20
       }
-    }]
+    }],
+    animationDuration: 1500,
+    animationEasing: 'cubicOut'
   }
   
   trendChart.setOption(option)
@@ -568,7 +661,7 @@ onUnmounted(() => {
 
 .recent-activities-section {
 /* 上边距 */
-  margin: 10px 0 0 0;
+  margin: 30px 0 0 0;
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -659,6 +752,29 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 82, 217, 0.08);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-chart-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #667eea 0%, #0052d9 50%, #764ba2 100%);
+}
+
+.dashboard-chart-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border-color: rgba(0, 82, 217, 0.15);
 }
 
 .recent-activities-card {
@@ -699,16 +815,49 @@ onUnmounted(() => {
 }
 
 .chart-title {
-  font-size: 18px;
-  font-weight: 400;
+  font-size: 20px;
+  font-weight: 600;
   color: #1f2937;
-  margin: 0;
+  margin: 10px;
+  background: linear-gradient(135deg, #1f2937 0%, #0052d9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  position: relative;
+  display: inline-block;
+}
+
+.chart-title::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 30px;
+  height: 2px;
+  background: linear-gradient(90deg, #667eea 0%, #0052d9 100%);
+  border-radius: 1px;
 }
 
 .chart-container {
   flex: 1;
   min-height: 200px;
   max-height: 280px;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.chart-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 82, 217, 0.2) 50%, transparent 100%);
 }
 
 .no-data {
