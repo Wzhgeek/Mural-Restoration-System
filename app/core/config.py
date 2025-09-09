@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24小时
     
+    # 前端配置
+    VUE_WEB: bool = Field(default=False, description="是否使用Vue3前端，False使用static目录，True使用Vue3前端")
+    
     # 文件上传配置
     MAX_FILE_SIZE: int = Field(default=100 * 1024 * 1024, description="最大文件大小，单位字节")
     ALLOWED_IMAGE_TYPES: List[str] = Field(default=["image/jpeg", "image/png", "image/bmp", "image/tiff"], description="允许的图片类型")

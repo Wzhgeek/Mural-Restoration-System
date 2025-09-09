@@ -67,6 +67,13 @@ if not os.path.exists("static"):
     os.makedirs("static")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# 挂载Vue3前端静态文件服务（如果Vue3前端启用）
+if settings.VUE_WEB and os.path.exists("webapp/dist"):
+    # 挂载Vue3前端的assets目录
+    app.mount("/assets", StaticFiles(directory="webapp/dist/assets"), name="vue3-assets")
+    # 挂载Vue3前端的根目录，用于服务vite.svg等文件
+    app.mount("/", StaticFiles(directory="webapp/dist", html=True), name="vue3-root")
+
 # 注册API路由
 app.include_router(api_router)
 
@@ -77,12 +84,22 @@ app.include_router(api_router)
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
     """
-    根路径路由 - 返回系统登录页面
+    根路径路由 - 根据环境变量返回不同的前端入口
+    
+    当 VUE_WEB=False 时，返回 static 目录下的 index.html
+    当 VUE_WEB=True 时，返回 Vue3 前端入口文件
     
     Returns:
-        FileResponse: 登录页面的HTML文件响应
+        FileResponse: 前端入口页面的HTML文件响应
     """
-    return FileResponse("static/login.html")
+    if settings.VUE_WEB:
+        # 使用Vue3前端入口
+        print("使用Vue3前端入口")
+        return FileResponse("webapp/dist/index.html")
+    else:
+        # 使用static目录下的入口
+        print("使用static目录下的入口")
+        return FileResponse("static/index.html")
 
 
 @app.post("/api/login", response_model=LoginResponse)
@@ -1095,7 +1112,7 @@ if __name__ == "__main__":
     # 启动FastAPI应用服务器
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
+        host="localhost",
         port=settings.APP_PORT,
         reload=settings.DEBUG
     )
