@@ -11,26 +11,22 @@ import { resolve } from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/', // 关键配置
   plugins: [vue()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')
     }
   },
-  // 配置构建选项，使用相对路径
-  base: './',
   build: {
+    // 构建输出目录
     outDir: 'dist',
+    // 静态资源目录
     assetsDir: 'assets',
-    // 确保生成的文件使用相对路径
-    rollupOptions: {
-      output: {
-        // 确保资源文件使用相对路径
-        assetFileNames: 'assets/[name]-[hash][extname]',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js'
-      }
-    }
+    // 清空输出目录
+    emptyOutDir: true,
+    // 添加 manifest 文件生成
+    manifest: true
   },
   server: {
     proxy: {

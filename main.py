@@ -18,7 +18,7 @@
 # ============================================================================
 # 第三方库导入
 # ============================================================================
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form as FormField, status
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form as FormField, status, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -62,17 +62,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 创建静态文件目录并挂载静态文件服务
-if not os.path.exists("static"):
-    os.makedirs("static")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# ============================================================================
+# 静态文件服务配置
+# ============================================================================
 
-# 挂载Vue3前端静态文件服务（如果Vue3前端启用）
-if settings.VUE_WEB and os.path.exists("webapp/dist"):
-    # 挂载Vue3前端的assets目录
-    app.mount("/assets", StaticFiles(directory="webapp/dist/assets"), name="vue3-assets")
-    # 挂载Vue3前端的根目录，用于服务vite.svg等文件
-    app.mount("/", StaticFiles(directory="webapp/dist", html=True), name="vue3-root")
+# 根据配置决定使用哪种前端
+if settings.VUE_WEB:
+    # Vue3前端模式：挂载编译后的dist目录
+    WEBAPP_DIST_PATH = "webapp/dist"
+    
+    # 确保dist目录存在
+    if os.path.exists(WEBAPP_DIST_PATH):
+        # 挂载Vue3静态资源（CSS、JS文件）
+        app.mount("/assets", StaticFiles(directory=os.path.join(WEBAPP_DIST_PATH, "assets")), name="vue-assets")
+        print(f"✅ Vue3前端已挂载: {WEBAPP_DIST_PATH}")
+        print(f"   - /assets/ → {os.path.join(WEBAPP_DIST_PATH, 'assets')}")
+    else:
+        print(f"⚠️  警告: Vue3 dist目录不存在: {WEBAPP_DIST_PATH}")
+        print("请先运行 'cd webapp && npm run build' 构建前端项目")
+else:
+    # 传统静态文件模式
+    if not os.path.exists("static"):
+        os.makedirs("static")
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+    print("✅ 传统静态文件已挂载: static/")
 
 # 注册API路由
 app.include_router(api_router)
@@ -84,22 +97,47 @@ app.include_router(api_router)
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
     """
-    根路径路由 - 根据环境变量返回不同的前端入口
+    根路径路由 - 返回系统主页面
     
-    当 VUE_WEB=False 时，返回 static 目录下的 index.html
-    当 VUE_WEB=True 时，返回 Vue3 前端入口文件
+    根据配置返回Vue3前端或传统静态页面
     
     Returns:
-        FileResponse: 前端入口页面的HTML文件响应
+        FileResponse: 主页面的HTML文件响应
     """
     if settings.VUE_WEB:
-        # 使用Vue3前端入口
-        print("使用Vue3前端入口")
-        return FileResponse("webapp/dist/index.html")
+        # Vue3前端模式：返回编译后的index.html
+        vue_index_path = "webapp/dist/index.html"
+        if os.path.exists(vue_index_path):
+            return FileResponse(vue_index_path)
+        else:
+            raise HTTPException(status_code=404, detail="Vue3前端文件不存在，请先构建前端项目")
     else:
-        # 使用static目录下的入口
-        print("使用static目录下的入口")
-        return FileResponse("static/index.html")
+        # 传统模式：返回登录页面
+        return FileResponse("static/login.html")
+
+
+# ============================================================================
+# Vue3静态资源路由（处理根目录静态文件）
+# ============================================================================
+
+@app.get("/vite.svg")
+async def get_vite_svg():
+    """返回Vue3的vite.svg图标文件"""
+    if settings.VUE_WEB:
+        vite_svg_path = "webapp/dist/vite.svg"
+        if os.path.exists(vite_svg_path):
+            return FileResponse(vite_svg_path)
+    raise HTTPException(status_code=404, detail="vite.svg not found")
+
+
+@app.get("/login-background.png")
+async def get_login_background():
+    """返回Vue3的登录背景图片"""
+    if settings.VUE_WEB:
+        bg_path = "webapp/dist/login-background.png"
+        if os.path.exists(bg_path):
+            return FileResponse(bg_path)
+    raise HTTPException(status_code=404, detail="login-background.png not found")
 
 
 @app.post("/api/login", response_model=LoginResponse)
@@ -1103,6 +1141,49 @@ async def startup_event():
 
 
 # ============================================================================
+# SPA路由支持（Vue Router History模式）
+# ============================================================================
+
+@app.get("/{full_path:path}", response_class=HTMLResponse)
+async def spa_handler(request: Request, full_path: str):
+    """
+    SPA路由处理器 - 支持Vue Router的History模式
+    
+    对于所有未匹配的路由，如果是Vue3模式且不是API请求，
+    则返回index.html让前端路由接管
+    
+    注意：此路由必须放在所有其他路由之后，作为最后的兜底路由
+    
+    Args:
+        request (Request): FastAPI请求对象
+        full_path (str): 完整的请求路径
+        
+    Returns:
+        FileResponse: 返回index.html或404错误
+    """
+    # 只在Vue3模式下处理SPA路由
+    if not settings.VUE_WEB:
+        raise HTTPException(status_code=404, detail="页面不存在")
+    
+    # API请求不应该被SPA处理器捕获
+    if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("redoc"):
+        raise HTTPException(status_code=404, detail="API端点不存在")
+    
+    # 静态资源请求不应该被SPA处理器捕获
+    if (full_path.startswith("assets/") or 
+        full_path.startswith("static-files/") or 
+        full_path.endswith(('.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg', '.woff', '.woff2', '.ttf'))):
+        raise HTTPException(status_code=404, detail="静态资源不存在")
+    
+    # 对于其他所有路径，返回Vue3的index.html让前端路由处理
+    vue_index_path = "webapp/dist/index.html"
+    if os.path.exists(vue_index_path):
+        return FileResponse(vue_index_path)
+    else:
+        raise HTTPException(status_code=404, detail="Vue3前端文件不存在，请先构建前端项目")
+
+
+# ============================================================================
 # 主程序入口
 # ============================================================================
 
@@ -1112,7 +1193,7 @@ if __name__ == "__main__":
     # 启动FastAPI应用服务器
     uvicorn.run(
         "main:app",
-        host="localhost",
+        host="0.0.0.0",
         port=settings.APP_PORT,
         reload=settings.DEBUG
     )
