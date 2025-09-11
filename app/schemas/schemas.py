@@ -29,6 +29,7 @@ class UserCreate(BaseModel):
     role_key: str
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    unit: Optional[str] = None  # 用户单位字段
 
 class UserResponse(BaseModel):
     user_id: int
@@ -38,6 +39,7 @@ class UserResponse(BaseModel):
     role_key: str
     email: Optional[str]
     phone: Optional[str]
+    unit: Optional[str]  # 用户单位字段
     is_active: bool
     created_at: datetime
     
@@ -107,6 +109,7 @@ class EvaluationCreate(BaseModel):
     score: int
     comment: Optional[str] = None
     evaluation_file: Optional[str] = None  # 统一字段名
+    personnel_confirmation: Optional[str] = None  # 人员确认字段（用户名+单位）
     
     @validator('score')
     def validate_score(cls, v):
@@ -121,6 +124,7 @@ class EvaluationResponse(BaseModel):
     score: int
     comment: Optional[str]
     evaluation_file: Optional[str]  # 统一字段名
+    personnel_confirmation: Optional[str]  # 人员确认字段（用户名+单位）
     created_at: datetime
     updated_at: datetime
     

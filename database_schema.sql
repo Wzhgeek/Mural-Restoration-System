@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
     role_id INTEGER NOT NULL REFERENCES roles(role_id),
     email VARCHAR(100) UNIQUE,
     phone VARCHAR(20),
+    unit VARCHAR(100),  -- 用户单位字段
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -84,6 +85,7 @@ CREATE TABLE IF NOT EXISTS evaluations (
     score SMALLINT CHECK (score >= 0 AND score <= 100),
     comment TEXT,
     evaluation_file TEXT,
+    personnel_confirmation VARCHAR(200),  -- 人员确认字段（用户名+单位）
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -125,11 +127,11 @@ INSERT INTO users (username, password_hash, full_name, role_id, email) VALUES
 ON CONFLICT (username) DO NOTHING;
 
 -- 插入测试用户（密码: 123456）
-INSERT INTO users (username, password_hash, full_name, role_id, email) VALUES 
+INSERT INTO users (username, password_hash, full_name, role_id, email, unit) VALUES 
     ('restorer1', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J/8.5.5.2', '修复专家张三', 
-     (SELECT role_id FROM roles WHERE role_key = 'restorer'), 'restorer1@repair.com'),
+     (SELECT role_id FROM roles WHERE role_key = 'restorer'), 'restorer1@repair.com', '克孜尔石窟研究院'),
     ('evaluator1', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J/8.5.5.2', '评估专家李四', 
-     (SELECT role_id FROM roles WHERE role_key = 'evaluator'), 'evaluator1@repair.com')
+     (SELECT role_id FROM roles WHERE role_key = 'evaluator'), 'evaluator1@repair.com', '文物保护中心')
 ON CONFLICT (username) DO NOTHING;
 
 -- 插入系统配置

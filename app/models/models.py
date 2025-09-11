@@ -35,6 +35,7 @@ class User(Base):
     role_id = Column(Integer, ForeignKey("roles.role_id"), nullable=False)
     email = Column(String(100), unique=True)
     phone = Column(String(20))
+    unit = Column(String(100))  # 用户单位字段
     is_active = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -119,6 +120,7 @@ class Evaluation(Base):
     score = Column(SmallInteger, CheckConstraint('score >= 0 AND score <= 100'))
     comment = Column(Text)
     evaluation_file = Column(Text, nullable=True)  # 评估意见支撑文件URL（统一字段名）
+    personnel_confirmation = Column(String(200))  # 人员确认字段（用户名+单位）
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     
