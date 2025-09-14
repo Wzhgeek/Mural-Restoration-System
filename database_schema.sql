@@ -113,6 +113,21 @@ CREATE TABLE IF NOT EXISTS system_configs (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 创建知识体系文件表
+CREATE TABLE IF NOT EXISTS knowledge_system_files (
+    id SERIAL PRIMARY KEY,
+    unit VARCHAR(100) NOT NULL,  -- 单位或提供人
+    filename VARCHAR(255) NOT NULL,  -- 文件名
+    file_url TEXT NOT NULL,  -- 文件链接（MinIO存储桶）
+    file_type VARCHAR(20) NOT NULL,  -- 文件类型：doc, jpg, png, pdf, docx, caj, xlsx, tif等
+    submission_info VARCHAR(100) NOT NULL,  -- 提交信息：论文，洞窟照片，建模文件，海外残片，绘画手稿
+    status VARCHAR(20) DEFAULT 'active',  -- 状态：active, archived, deleted
+    remark TEXT,  -- 备注
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE  -- 软删除字段
+);
+
 -- 插入基础角色数据
 INSERT INTO roles (role_key, role_name) VALUES 
     ('admin', '管理员'),
@@ -167,6 +182,18 @@ CREATE INDEX IF NOT EXISTS idx_forms_submitter_id ON forms(submitter_id);
 CREATE INDEX IF NOT EXISTS idx_step_logs_form_id ON step_logs(form_id);
 CREATE INDEX IF NOT EXISTS idx_evaluations_workflow_id ON evaluations(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_rollback_requests_workflow_id ON rollback_requests(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_files_unit ON knowledge_system_files(unit);
+CREATE INDEX IF NOT EXISTS idx_knowledge_files_file_type ON knowledge_system_files(file_type);
+CREATE INDEX IF NOT EXISTS idx_knowledge_files_submission_info ON knowledge_system_files(submission_info);
+CREATE INDEX IF NOT EXISTS idx_knowledge_files_status ON knowledge_system_files(status);
+CREATE INDEX IF NOT EXISTS idx_knowledge_files_created_at ON knowledge_system_files(created_at);
+CREATE INDEX IF NOT EXISTS idx_knowledge_files_deleted_at ON knowledge_system_files(deleted_at);
 
 -- 显示创建结果
 SELECT 'Database initialization completed successfully!' as message;
+
+-- 知识体系文件存储功能已添加
+-- 表: knowledge_system_files
+-- MinIO存储桶: knowledge-files
+-- 作者: 王梓涵
+-- 时间: 2025年

@@ -164,4 +164,19 @@ class SystemConfig(Base):
     description = Column(String(255))
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
 
+class KnowledgeSystemFile(Base):
+    __tablename__ = "knowledge_system_files"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    unit = Column(String(100), nullable=False)  # 单位或提供人
+    filename = Column(String(255), nullable=False)  # 文件名
+    file_url = Column(Text, nullable=False)  # 文件链接（MinIO存储桶）
+    file_type = Column(String(20), nullable=False)  # 文件类型：doc, jpg, png, pdf, docx, caj, xlsx, tif等
+    submission_info = Column(String(100), nullable=False)  # 提交信息：论文，洞窟照片，建模文件，海外残片，绘画手稿
+    status = Column(String(20), default='active')  # 状态：active, archived, deleted
+    remark = Column(Text)  # 备注
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)  # 软删除字段
+
 

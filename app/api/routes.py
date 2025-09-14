@@ -1145,3 +1145,244 @@ async def admin_batch_delete_evaluations(
         deleted_count=deleted_count,
         ids=evaluation_ids
     )
+
+# 知识体系文件管理API
+@router.post("/knowledge-files", response_model=KnowledgeSystemFileResponse)
+async def create_knowledge_file(
+    file_data: KnowledgeSystemFileCreate,
+    current_user: User = Depends(require_restorer),
+    db: Session = Depends(get_db)
+):
+    """创建知识体系文件记录"""
+    
+    # 创建文件记录
+    knowledge_file = KnowledgeSystemFile(
+        unit=file_data.unit,
+        filename=file_data.filename,
+        file_url=file_data.file_url,
+        file_type=file_data.file_type,
+        submission_info=file_data.submission_info,
+        remark=file_data.remark
+    )
+    
+    db.add(knowledge_file)
+    db.commit()
+    db.refresh(knowledge_file)
+    
+    return knowledge_file
+
+@router.get("/knowledge-files", response_model=KnowledgeSystemFilePaginatedResponse)
+async def get_knowledge_files(
+    page: int = 1,
+    limit: int = 20,
+    unit: Optional[str] = None,
+    file_type: Optional[str] = None,
+    submission_info: Optional[str] = None,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    current_user: User = Depends(require_restorer),
+    db: Session = Depends(get_db)
+):
+    """获取知识体系文件列表（分页）"""
+    
+    # 构建查询条件
+    query = db.query(KnowledgeSystemFile).filter(KnowledgeSystemFile.deleted_at.is_(None))
+    
+    # 添加过滤条件
+    if unit:
+        query = query.filter(KnowledgeSystemFile.unit.ilike(f"%{unit}%"))
+    if file_type:
+        query = query.filter(KnowledgeSystemFile.file_type == file_type)
+    if submission_info:
+        query = query.filter(KnowledgeSystemFile.submission_info == submission_info)
+    if status:
+        query = query.filter(KnowledgeSystemFile.status == status)
+    if search:
+        query = query.filter(
+            or_(
+                KnowledgeSystemFile.filename.ilike(f"%{search}%"),
+                KnowledgeSystemFile.unit.ilike(f"%{search}%"),
+                KnowledgeSystemFile.remark.ilike(f"%{search}%")
+            )
+        )
+    
+    # 获取总数
+    total = query.count()
+    
+    # 分页查询
+    offset = (page - 1) * limit
+    files = query.order_by(desc(KnowledgeSystemFile.created_at)).offset(offset).limit(limit).all()
+    
+    # 计算总页数
+    total_pages = (total + limit - 1) // limit
+    
+    return KnowledgeSystemFilePaginatedResponse(
+        items=files,
+        total=total,
+        page=page,
+        limit=limit,
+        total_pages=total_pages
+    )
+
+@router.get("/knowledge-files/{file_id}", response_model=KnowledgeSystemFileResponse)
+async def get_knowledge_file(
+    file_id: int,
+    current_user: User = Depends(require_restorer),
+    db: Session = Depends(get_db)
+):
+    """获取单个知识体系文件详情"""
+    
+    file_record = db.query(KnowledgeSystemFile).filter(
+        KnowledgeSystemFile.id == file_id,
+        KnowledgeSystemFile.deleted_at.is_(None)
+    ).first()
+    
+    if not file_record:
+        raise HTTPException(status_code=404, detail="文件记录不存在")
+    
+    return file_record
+
+@router.put("/knowledge-files/{file_id}", response_model=KnowledgeSystemFileResponse)
+async def update_knowledge_file(
+    file_id: int,
+    file_data: KnowledgeSystemFileUpdate,
+    current_user: User = Depends(require_restorer),
+    db: Session = Depends(get_db)
+):
+    """更新知识体系文件记录"""
+    
+    file_record = db.query(KnowledgeSystemFile).filter(
+        KnowledgeSystemFile.id == file_id,
+        KnowledgeSystemFile.deleted_at.is_(None)
+    ).first()
+    
+    if not file_record:
+        raise HTTPException(status_code=404, detail="文件记录不存在")
+    
+    # 更新字段
+    update_data = file_data.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(file_record, field, value)
+    
+    db.commit()
+    db.refresh(file_record)
+    
+    return file_record
+
+@router.delete("/knowledge-files/{file_id}")
+async def delete_knowledge_file(
+    file_id: int,
+    current_user: User = Depends(require_restorer),
+    db: Session = Depends(get_db)
+):
+    """软删除知识体系文件记录"""
+    
+    file_record = db.query(KnowledgeSystemFile).filter(
+        KnowledgeSystemFile.id == file_id,
+        KnowledgeSystemFile.deleted_at.is_(None)
+    ).first()
+    
+    if not file_record:
+        raise HTTPException(status_code=404, detail="文件记录不存在")
+    
+    # 软删除
+    file_record.deleted_at = func.now()
+    db.commit()
+    
+    return ResponseModel(success=True, message="文件记录删除成功")
+
+@router.post("/knowledge-files/batch-delete", response_model=BatchDeleteResponse)
+async def batch_delete_knowledge_files(
+    request: BatchDeleteRequest,
+    current_user: User = Depends(require_restorer),
+    db: Session = Depends(get_db)
+):
+    """批量删除知识体系文件记录"""
+    
+    # 查询要删除的文件记录
+    file_records = db.query(KnowledgeSystemFile).filter(
+        KnowledgeSystemFile.id.in_(request.ids),
+        KnowledgeSystemFile.deleted_at.is_(None)
+    ).all()
+    
+    if not file_records:
+        raise HTTPException(status_code=404, detail="未找到要删除的文件记录")
+    
+    # 软删除
+    deleted_count = 0
+    for file_record in file_records:
+        file_record.deleted_at = func.now()
+        deleted_count += 1
+    
+    db.commit()
+    
+    return BatchDeleteResponse(
+        success=True,
+        message=f"成功删除{deleted_count}条文件记录",
+        deleted_count=deleted_count,
+        ids=[f.id for f in file_records]
+    )
+
+@router.post("/knowledge-files/upload", response_model=FileUploadResponse)
+async def upload_knowledge_file(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_restorer)
+):
+    """上传知识体系文件到MinIO存储桶"""
+    
+    # 检查文件类型
+    allowed_types = ['doc', 'jpg', 'png', 'pdf', 'docx', 'caj', 'xlsx', 'tif', 'ppt', 'pptx', 'txt', 'zip', 'rar']
+    file_extension = file.filename.split('.')[-1].lower() if '.' in file.filename else ''
+    
+    if file_extension not in allowed_types:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"不支持的文件类型: {file_extension}，支持的类型: {', '.join(allowed_types)}"
+        )
+    
+    # 上传到knowledge-files存储桶
+    try:
+        file_url = await file_service.upload_file_async(file, "knowledge-files")
+        return FileUploadResponse(
+            filename=file.filename,
+            file_url=file_url,
+            file_size=file.size,
+            content_type=file.content_type
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
+
+@router.get("/knowledge-files/stats")
+async def get_knowledge_files_stats(
+    current_user: User = Depends(require_restorer),
+    db: Session = Depends(get_db)
+):
+    """获取知识体系文件统计信息"""
+    
+    # 总文件数
+    total_files = db.query(KnowledgeSystemFile).filter(KnowledgeSystemFile.deleted_at.is_(None)).count()
+    
+    # 按文件类型统计
+    file_type_stats = db.query(
+        KnowledgeSystemFile.file_type,
+        func.count(KnowledgeSystemFile.id).label('count')
+    ).filter(KnowledgeSystemFile.deleted_at.is_(None)).group_by(KnowledgeSystemFile.file_type).all()
+    
+    # 按提交信息统计
+    submission_stats = db.query(
+        KnowledgeSystemFile.submission_info,
+        func.count(KnowledgeSystemFile.id).label('count')
+    ).filter(KnowledgeSystemFile.deleted_at.is_(None)).group_by(KnowledgeSystemFile.submission_info).all()
+    
+    # 按单位统计
+    unit_stats = db.query(
+        KnowledgeSystemFile.unit,
+        func.count(KnowledgeSystemFile.id).label('count')
+    ).filter(KnowledgeSystemFile.deleted_at.is_(None)).group_by(KnowledgeSystemFile.unit).all()
+    
+    return {
+        "total_files": total_files,
+        "file_type_distribution": {item.file_type: item.count for item in file_type_stats},
+        "submission_info_distribution": {item.submission_info: item.count for item in submission_stats},
+        "unit_distribution": {item.unit: item.count for item in unit_stats}
+    }

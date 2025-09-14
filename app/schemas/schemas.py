@@ -274,4 +274,84 @@ class WorkflowPaginatedResponse(BaseModel):
     limit: int
     total_pages: int
 
+# 知识体系文件相关模型
+class KnowledgeSystemFileCreate(BaseModel):
+    unit: str
+    filename: str
+    file_url: str
+    file_type: str
+    submission_info: str
+    remark: Optional[str] = None
+    
+    @validator('file_type')
+    def validate_file_type(cls, v):
+        allowed_types = ['doc', 'jpg', 'png', 'pdf', 'docx', 'caj', 'xlsx', 'tif', 'docx', 'ppt', 'pptx', 'txt', 'zip', 'rar']
+        if v.lower() not in allowed_types:
+            raise ValueError(f'不支持的文件类型: {v}，支持的类型: {", ".join(allowed_types)}')
+        return v.lower()
+    
+    @validator('submission_info')
+    def validate_submission_info(cls, v):
+        allowed_info = ['论文', '洞窟照片', '建模文件', '海外残片', '绘画手稿', '研究报告', '技术文档', '其他']
+        if v not in allowed_info:
+            raise ValueError(f'无效的提交信息: {v}，支持的类型: {", ".join(allowed_info)}')
+        return v
+
+class KnowledgeSystemFileUpdate(BaseModel):
+    unit: Optional[str] = None
+    filename: Optional[str] = None
+    file_type: Optional[str] = None
+    submission_info: Optional[str] = None
+    status: Optional[str] = None
+    remark: Optional[str] = None
+    
+    @validator('file_type')
+    def validate_file_type(cls, v):
+        if v is not None:
+            allowed_types = ['doc', 'jpg', 'png', 'pdf', 'docx', 'caj', 'xlsx', 'tif', 'docx', 'ppt', 'pptx', 'txt', 'zip', 'rar']
+            if v.lower() not in allowed_types:
+                raise ValueError(f'不支持的文件类型: {v}，支持的类型: {", ".join(allowed_types)}')
+            return v.lower()
+        return v
+    
+    @validator('submission_info')
+    def validate_submission_info(cls, v):
+        if v is not None:
+            allowed_info = ['论文', '洞窟照片', '建模文件', '海外残片', '绘画手稿', '研究报告', '技术文档', '其他']
+            if v not in allowed_info:
+                raise ValueError(f'无效的提交信息: {v}，支持的类型: {", ".join(allowed_info)}')
+        return v
+    
+    @validator('status')
+    def validate_status(cls, v):
+        if v is not None:
+            allowed_status = ['active', 'archived', 'deleted']
+            if v not in allowed_status:
+                raise ValueError(f'无效的状态: {v}，支持的状态: {", ".join(allowed_status)}')
+        return v
+
+class KnowledgeSystemFileResponse(BaseModel):
+    id: int
+    unit: str
+    filename: str
+    file_url: str
+    file_type: str
+    submission_info: str
+    status: str
+    remark: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+# 知识体系文件分页响应模型
+class KnowledgeSystemFilePaginatedResponse(BaseModel):
+    items: List[KnowledgeSystemFileResponse]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+
 
