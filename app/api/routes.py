@@ -29,10 +29,16 @@ async def create_form(
     restoration_opinion: Optional[str] = FormField(None),
     opinion_tags: Optional[str] = FormField(None),  # JSON字符串
     remark: Optional[str] = FormField(None),
+    # 单个文件字段（向后兼容）
     image_file: Optional[UploadFile] = File(None),
     image_desc_file: Optional[UploadFile] = File(None),
     opinion_file: Optional[UploadFile] = File(None),
     attachment_file: Optional[UploadFile] = File(None),
+    # 多文件字段
+    image_files: List[UploadFile] = File([]),
+    image_desc_files: List[UploadFile] = File([]),
+    opinion_files: List[UploadFile] = File([]),
+    attachment_files: List[UploadFile] = File([]),
     current_user: User = Depends(require_restorer),
     db: Session = Depends(get_db)
 ):
@@ -52,13 +58,22 @@ async def create_form(
     next_step = (max_step or 0) + 1
     
     # 处理文件上传
+    # 单个文件字段（向后兼容）
     image_url = None
     image_desc_file_url = None
     opinion_file_url = None
     attachment_url = None
     image_meta = None
     
+    # 多文件字段
+    image_urls = []
+    image_metas = []
+    image_desc_file_urls = []
+    opinion_file_urls = []
+    attachment_urls = []
+    
     try:
+        # 处理单个图片文件（向后兼容）
         if image_file:
             image_content = await image_file.read()
             image_url = file_service.upload_file(
@@ -66,13 +81,29 @@ async def create_form(
                 filename=image_file.filename,
                 content_type=image_file.content_type
             )
-            # 简单的图片元数据
             image_meta = {
                 "filename": image_file.filename,
                 "size": len(image_content),
                 "content_type": image_file.content_type
             }
         
+        # 处理多个图片文件
+        for img_file in image_files:
+            if img_file and img_file.filename:
+                img_content = await img_file.read()
+                img_url = file_service.upload_file(
+                    file_content=img_content,
+                    filename=img_file.filename,
+                    content_type=img_file.content_type
+                )
+                image_urls.append(img_url)
+                image_metas.append({
+                    "filename": img_file.filename,
+                    "size": len(img_content),
+                    "content_type": img_file.content_type
+                })
+        
+        # 处理单个描述文件（向后兼容）
         if image_desc_file:
             desc_content = await image_desc_file.read()
             image_desc_file_url = file_service.upload_file(
@@ -81,6 +112,18 @@ async def create_form(
                 content_type=image_desc_file.content_type
             )
         
+        # 处理多个描述文件
+        for desc_file in image_desc_files:
+            if desc_file and desc_file.filename:
+                desc_content = await desc_file.read()
+                desc_url = file_service.upload_file(
+                    file_content=desc_content,
+                    filename=desc_file.filename,
+                    content_type=desc_file.content_type
+                )
+                image_desc_file_urls.append(desc_url)
+        
+        # 处理单个意见文件（向后兼容）
         if opinion_file:
             opinion_content = await opinion_file.read()
             opinion_file_url = file_service.upload_file(
@@ -89,6 +132,18 @@ async def create_form(
                 content_type=opinion_file.content_type
             )
         
+        # 处理多个意见文件
+        for op_file in opinion_files:
+            if op_file and op_file.filename:
+                op_content = await op_file.read()
+                op_url = file_service.upload_file(
+                    file_content=op_content,
+                    filename=op_file.filename,
+                    content_type=op_file.content_type
+                )
+                opinion_file_urls.append(op_url)
+        
+        # 处理单个附件（向后兼容）
         if attachment_file:
             attachment_content = await attachment_file.read()
             attachment_url = file_service.upload_file(
@@ -96,6 +151,17 @@ async def create_form(
                 filename=attachment_file.filename,
                 content_type=attachment_file.content_type
             )
+        
+        # 处理多个附件
+        for att_file in attachment_files:
+            if att_file and att_file.filename:
+                att_content = await att_file.read()
+                att_url = file_service.upload_file(
+                    file_content=att_content,
+                    filename=att_file.filename,
+                    content_type=att_file.content_type
+                )
+                attachment_urls.append(att_url)
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
@@ -113,15 +179,23 @@ async def create_form(
         workflow_id=workflow_id,
         step_no=next_step,
         submitter_id=current_user.user_id,
+        # 单个文件字段（向后兼容）
         image_url=image_url,
         image_meta=image_meta,
-        image_desc=image_desc,
         image_desc_file=image_desc_file_url,
+        opinion_file=opinion_file_url,
+        attachment=attachment_url,
+        # 多文件字段
+        image_urls=image_urls if image_urls else None,
+        image_metas=image_metas if image_metas else None,
+        image_desc_files=image_desc_file_urls if image_desc_file_urls else None,
+        opinion_files=opinion_file_urls if opinion_file_urls else None,
+        attachments=attachment_urls if attachment_urls else None,
+        # 其他字段
+        image_desc=image_desc,
         restoration_opinion=restoration_opinion,
         opinion_tags=tags_list,
-        opinion_file=opinion_file_url,
-        remark=remark,
-        attachment=attachment_url
+        remark=remark
     )
     
     db.add(form)
@@ -151,15 +225,23 @@ async def create_form(
         workflow_id=form.workflow_id,
         step_no=form.step_no,
         submitter_name=form.submitter.full_name,
+        # 单个文件字段（向后兼容）
         image_url=form.image_url,
         image_meta=form.image_meta,
-        image_desc=form.image_desc,
         image_desc_file=form.image_desc_file,
+        opinion_file=form.opinion_file,
+        attachment=form.attachment,
+        # 多文件字段
+        image_urls=form.image_urls,
+        image_metas=form.image_metas,
+        image_desc_files=form.image_desc_files,
+        opinion_files=form.opinion_files,
+        attachments=form.attachments,
+        # 其他字段
+        image_desc=form.image_desc,
         restoration_opinion=form.restoration_opinion,
         opinion_tags=form.opinion_tags,
-        opinion_file=form.opinion_file,
         remark=form.remark,
-        attachment=form.attachment,
         created_at=form.created_at
     )
 
@@ -259,7 +341,10 @@ async def create_evaluation(
     workflow_id: str = FormField(...),
     score: int = FormField(...),
     comment: str = FormField(None),
+    # 单个文件字段（向后兼容）
     support_file: UploadFile = File(None),
+    # 多文件字段
+    support_files: List[UploadFile] = File([]),
     current_user: User = Depends(require_evaluator),
     db: Session = Depends(get_db)
 ):
@@ -276,6 +361,7 @@ async def create_evaluation(
         raise HTTPException(status_code=400, detail="评分必须在0-100之间")
     
     # 处理文件上传
+    # 单个文件字段（向后兼容）
     support_file_url = None
     if support_file and support_file.filename:
         try:
@@ -287,6 +373,21 @@ async def create_evaluation(
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail="文件上传失败")
+    
+    # 多文件字段
+    support_file_urls = []
+    for sup_file in support_files:
+        if sup_file and sup_file.filename:
+            try:
+                file_content = await sup_file.read()
+                file_url = file_service.upload_file(
+                    file_content=file_content,
+                    filename=sup_file.filename,
+                    content_type=sup_file.content_type
+                )
+                support_file_urls.append(file_url)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
     
     # 检查工作流是否存在且已完成
     workflow = db.query(Workflow).filter(
@@ -309,7 +410,10 @@ async def create_evaluation(
         evaluator_id=current_user.user_id,
         score=score,
         comment=comment,
-        evaluation_file=support_file_url  # 使用统一的字段名
+        # 单个文件字段（向后兼容）
+        evaluation_file=support_file_url,
+        # 多文件字段
+        evaluation_files=support_file_urls if support_file_urls else None
     )
     
     db.add(evaluation)
@@ -429,7 +533,10 @@ async def create_rollback_request(
     workflow_id: str = FormField(...),
     target_form_id: str = FormField(...),
     reason: str = FormField(...),
+    # 单个文件字段（向后兼容）
     support_file: Optional[UploadFile] = File(None),
+    # 多文件字段
+    support_files: List[UploadFile] = File([]),
     current_user: User = Depends(require_restorer),
     db: Session = Depends(get_db)
 ):
@@ -443,6 +550,7 @@ async def create_rollback_request(
         raise HTTPException(status_code=400, detail="无效的ID格式")
     
     # 处理支撑文件上传
+    # 单个文件字段（向后兼容）
     support_file_url = None
     if support_file:
         try:
@@ -454,6 +562,21 @@ async def create_rollback_request(
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
+    
+    # 多文件字段
+    support_file_urls = []
+    for sup_file in support_files:
+        if sup_file and sup_file.filename:
+            try:
+                file_content = await sup_file.read()
+                file_url = file_service.upload_file(
+                    file_content=file_content,
+                    filename=sup_file.filename,
+                    content_type=sup_file.content_type
+                )
+                support_file_urls.append(file_url)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
     
     # 检查工作流权限
     workflow = db.query(Workflow).filter(Workflow.workflow_id == workflow_uuid).first()
@@ -477,7 +600,10 @@ async def create_rollback_request(
         requester_id=current_user.user_id,
         target_form_id=target_form_uuid,
         reason=reason,
+        # 单个文件字段（向后兼容）
         support_file_url=support_file_url,
+        # 多文件字段
+        support_file_urls=support_file_urls if support_file_urls else None,
         status='pending'
     )
     
@@ -491,7 +617,10 @@ async def create_rollback_request(
         requester_name=rollback_request.requester.full_name,
         target_form_id=rollback_request.target_form_id,
         reason=rollback_request.reason,
+        # 单个文件字段（向后兼容）
         support_file_url=rollback_request.support_file_url,
+        # 多文件字段
+        support_file_urls=rollback_request.support_file_urls,
         status=rollback_request.status,
         approver_name=None,
         approved_at=rollback_request.approved_at,
@@ -638,7 +767,10 @@ async def get_rollback_requests(
                 requester_name=r.requester.full_name,
                 target_form_id=r.target_form_id,
                 reason=r.reason,
+                # 单个文件字段（向后兼容）
                 support_file_url=r.support_file_url,
+                # 多文件字段
+                support_file_urls=r.support_file_urls,
                 status=r.status,
                 approver_name=r.approver.full_name if r.approver else None,
                 approved_at=r.approved_at,
@@ -679,7 +811,10 @@ async def get_rollback_request_detail(
         requester_name=rollback_request.requester.full_name,
         target_form_id=rollback_request.target_form_id,
         reason=rollback_request.reason,
+        # 单个文件字段（向后兼容）
         support_file_url=rollback_request.support_file_url,
+        # 多文件字段
+        support_file_urls=rollback_request.support_file_urls,
         status=rollback_request.status,
         approver_name=rollback_request.approver.full_name if rollback_request.approver else None,
         approved_at=rollback_request.approved_at,

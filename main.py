@@ -176,6 +176,7 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
         role_key=user.role.role_key,
         email=user.email,
         phone=user.phone,
+        unit=user.unit,  # 添加单位字段
         is_active=user.is_active,
         created_at=user.created_at
     )
@@ -210,6 +211,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         role_key=current_user.role.role_key,
         email=current_user.email,
         phone=current_user.phone,
+        unit=current_user.unit,  # 添加单位字段
         is_active=current_user.is_active,
         created_at=current_user.created_at
     )
@@ -249,10 +251,12 @@ async def update_user_profile(
         user_id=current_user.user_id,
         username=current_user.username,
         full_name=current_user.full_name,
+        role_id=current_user.role.role_id,  # 添加role_id字段
         role_name=current_user.role.role_name,
         role_key=current_user.role.role_key,
         email=current_user.email,
         phone=current_user.phone,
+        unit=current_user.unit,  # 添加单位字段
         is_active=current_user.is_active,
         created_at=current_user.created_at
     )

@@ -90,15 +90,23 @@ class FormResponse(BaseModel):
     workflow_id: UUID
     step_no: int
     submitter_name: str
+    # 单个文件字段（向后兼容）
     image_url: Optional[str]
     image_meta: Optional[dict]
-    image_desc: Optional[str]
     image_desc_file: Optional[str]
+    opinion_file: Optional[str]
+    attachment: Optional[str]
+    # 多文件字段
+    image_urls: Optional[List[str]] = None
+    image_metas: Optional[List[dict]] = None
+    image_desc_files: Optional[List[str]] = None
+    opinion_files: Optional[List[str]] = None
+    attachments: Optional[List[str]] = None
+    # 其他字段
+    image_desc: Optional[str]
     restoration_opinion: Optional[str]
     opinion_tags: Optional[List[str]]
-    opinion_file: Optional[str]
     remark: Optional[str]
-    attachment: Optional[str]
     created_at: datetime
     
     class Config:
@@ -124,7 +132,10 @@ class EvaluationResponse(BaseModel):
     evaluator_name: str
     score: int
     comment: Optional[str]
+    # 单个文件字段（向后兼容）
     evaluation_file: Optional[str]  # 统一字段名
+    # 多文件字段
+    evaluation_files: Optional[List[str]] = None
     personnel_confirmation: Optional[str]  # 人员确认字段（用户名+单位）
     created_at: datetime
     updated_at: datetime
@@ -148,7 +159,10 @@ class RollbackRequestResponse(BaseModel):
     requester_name: str
     target_form_id: UUID
     reason: str
+    # 单个文件字段（向后兼容）
     support_file_url: Optional[str]
+    # 多文件字段
+    support_file_urls: Optional[List[str]] = None
     status: str
     approver_name: Optional[str]
     approved_at: Optional[datetime]
@@ -208,6 +222,14 @@ class FileUploadResponse(BaseModel):
     file_url: str
     file_size: int
     content_type: str
+
+# 多文件上传响应
+class MultiFileUploadResponse(BaseModel):
+    files: List[FileUploadResponse]
+    total_count: int
+    success_count: int
+    failed_count: int
+    failed_files: Optional[List[dict]] = None  # 失败的文件信息
 
 # 批量删除请求模型
 class BatchDeleteRequest(BaseModel):

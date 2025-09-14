@@ -77,15 +77,20 @@ class Form(Base):
     workflow_id = Column(UUID(as_uuid=True), ForeignKey("workflows.workflow_id"), nullable=False)
     step_no = Column(Integer, nullable=False)
     submitter_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
-    image_url = Column(Text)
-    image_meta = Column(JSONB)
+    image_url = Column(Text)  # 保留单个图片URL（向后兼容）
+    image_meta = Column(JSONB)  # 保留单个图片元数据（向后兼容）
+    image_urls = Column(JSONB)  # 多图片URL列表
+    image_metas = Column(JSONB)  # 多图片元数据列表
     image_desc = Column(Text)
-    image_desc_file = Column(Text)
+    image_desc_file = Column(Text)  # 保留单个描述文件（向后兼容）
+    image_desc_files = Column(JSONB)  # 多描述文件URL列表
     restoration_opinion = Column(Text)
     opinion_tags = Column(ARRAY(String))
-    opinion_file = Column(Text)
+    opinion_file = Column(Text)  # 保留单个意见文件（向后兼容）
+    opinion_files = Column(JSONB)  # 多意见文件URL列表
     remark = Column(Text)
-    attachment = Column(Text)
+    attachment = Column(Text)  # 保留单个附件（向后兼容）
+    attachments = Column(JSONB)  # 多附件URL列表
     is_rollback_from = Column(UUID(as_uuid=True), ForeignKey("forms.form_id"))
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())  # 添加更新时间字段
@@ -119,7 +124,8 @@ class Evaluation(Base):
     evaluator_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     score = Column(SmallInteger, CheckConstraint('score >= 0 AND score <= 100'))
     comment = Column(Text)
-    evaluation_file = Column(Text, nullable=True)  # 评估意见支撑文件URL（统一字段名）
+    evaluation_file = Column(Text, nullable=True)  # 评估意见支撑文件URL（向后兼容）
+    evaluation_files = Column(JSONB)  # 多评估文件URL列表
     personnel_confirmation = Column(String(200))  # 人员确认字段（用户名+单位）
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -136,7 +142,8 @@ class RollbackRequest(Base):
     requester_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     target_form_id = Column(UUID(as_uuid=True), ForeignKey("forms.form_id"), nullable=False)
     reason = Column(Text, nullable=False)
-    support_file_url = Column(Text)  # 支撑材料文件URL
+    support_file_url = Column(Text)  # 支撑材料文件URL（向后兼容）
+    support_file_urls = Column(JSONB)  # 多支撑文件URL列表
     status = Column(String(20), default='pending')  # pending, approved, rejected
     approver_id = Column(Integer, ForeignKey("users.user_id"))
     approved_at = Column(TIMESTAMP(timezone=True))
