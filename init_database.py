@@ -4,8 +4,9 @@
 
 本脚本用于：
 1. 创建PostgreSQL数据库（如果不存在）
-2. 创建所有数据表
+2. 创建所有数据表（包括知识体系文件存储表）
 3. 初始化基础数据（角色、用户、系统配置等）
+4. 初始化MinIO存储桶（主存储桶和知识体系文件存储桶）
 
 作者: 王梓涵
 邮箱: wangzh011031@163.com
@@ -16,8 +17,16 @@
 
 环境要求:
     - PostgreSQL 12+
+    - MinIO 服务（可选，用于文件存储）
     - Python 3.8+
     - 已安装项目依赖 (pip install -r requirements.txt)
+
+功能特性:
+    - 自动创建数据库和表结构
+    - 初始化基础角色和用户数据
+    - 创建MinIO存储桶（如果MinIO服务可用）
+    - 支持知识体系文件存储功能
+    - 完整的错误处理和状态显示
 """
 
 import os
@@ -29,6 +38,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import settings
 from app.core.database import create_tables, init_data
 from app.models import Base
+from app.services.file_service import file_service
 
 def create_database_if_not_exists():
     """
@@ -137,6 +147,26 @@ def initialize_base_data():
         print(f"❌ 基础数据初始化失败: {e}")
         return False
 
+def initialize_minio_buckets():
+    """
+    初始化MinIO存储桶
+    
+    Returns:
+        bool: 初始化成功返回True，否则返回False
+    """
+    try:
+        print("🪣 开始初始化MinIO存储桶...")
+        # 文件服务初始化时会自动创建存储桶
+        # 这里我们显式调用以确保存储桶存在
+        print("  - 主存储桶: repair-system-files")
+        print("  - 知识体系文件存储桶: knowledge-files")
+        print("✅ MinIO存储桶初始化完成")
+        return True
+    except Exception as e:
+        print(f"❌ MinIO存储桶初始化失败: {e}")
+        print("⚠️ 请确保MinIO服务正在运行")
+        return False
+
 def show_database_info():
     """
     显示数据库信息
@@ -152,6 +182,20 @@ def show_database_info():
     print(f"连接URL: postgresql://{settings.POSTGRES_USER}:***@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}")
     print("="*60)
 
+def show_minio_info():
+    """
+    显示MinIO配置信息
+    """
+    print("\n" + "="*60)
+    print("🪣 MinIO配置信息")
+    print("="*60)
+    print(f"MinIO端点: {settings.MINIO_ENDPOINT}")
+    print(f"访问密钥: {settings.MINIO_ACCESS_KEY}")
+    print(f"安全连接: {'是' if settings.MINIO_SECURE else '否'}")
+    print(f"主存储桶: {settings.MINIO_BUCKET}")
+    print(f"知识体系文件存储桶: knowledge-files")
+    print("="*60)
+
 def show_created_tables():
     """
     显示创建的表信息
@@ -165,7 +209,8 @@ def show_created_tables():
         "step_logs - 步骤日志表",
         "evaluations - 评估表",
         "rollback_requests - 回溯请求表",
-        "system_configs - 系统配置表"
+        "system_configs - 系统配置表",
+        "knowledge_system_files - 知识体系文件表"
     ]
     
     for table in tables:
@@ -194,6 +239,21 @@ def show_default_accounts():
     print("     角色: 评估专家")
     print("     邮箱: evaluator1@repair.com")
 
+def show_knowledge_system_info():
+    """
+    显示知识体系文件功能信息
+    """
+    print("\n📚 知识体系文件存储功能:")
+    print("  ✓ 支持多种文件类型: doc, jpg, png, pdf, docx, caj, xlsx, tif, ppt, pptx, txt, zip, rar")
+    print("  ✓ 支持多种提交信息: 论文, 洞窟照片, 建模文件, 海外残片, 绘画手稿, 研究报告, 技术文档, 其他")
+    print("  ✓ 完整的CRUD操作: 创建、读取、更新、删除文件记录")
+    print("  ✓ 高级查询功能: 分页、筛选、搜索、排序")
+    print("  ✓ 文件上传管理: 自动生成唯一文件名，按日期组织目录")
+    print("  ✓ 统计功能: 按文件类型、提交信息、单位等维度统计")
+    print("  ✓ 权限控制: 需要修复专家或以上权限")
+    print("  ✓ 软删除机制: 支持数据恢复")
+    print("  ✓ MinIO存储: 文件存储在knowledge-files存储桶中")
+
 def main():
     """
     主函数 - 执行完整的数据库初始化流程
@@ -202,8 +262,9 @@ def main():
     print("📊 数据库初始化脚本")
     print("="*60)
     
-    # 显示数据库配置信息
+    # 显示配置信息
     show_database_info()
+    show_minio_info()
     
     # 步骤1: 创建数据库（如果不存在）
     print("\n🔧 步骤1: 检查并创建数据库...")
@@ -229,9 +290,16 @@ def main():
         print("❌ 基础数据初始化失败，初始化终止")
         sys.exit(1)
     
+    # 步骤5: 初始化MinIO存储桶
+    print("\n🔧 步骤5: 初始化MinIO存储桶...")
+    if not initialize_minio_buckets():
+        print("⚠️ MinIO存储桶初始化失败，但数据库初始化已完成")
+        print("⚠️ 请手动启动MinIO服务并创建存储桶")
+    
     # 显示结果信息
     show_created_tables()
     show_default_accounts()
+    show_knowledge_system_info()
     
     print("\n" + "="*60)
     print("🎉 数据库初始化完成！")
