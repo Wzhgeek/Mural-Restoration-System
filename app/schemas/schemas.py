@@ -35,6 +35,7 @@ class UserResponse(BaseModel):
     user_id: int
     username: str
     full_name: str
+    role_id: int  # 角色ID字段
     role_name: str
     role_key: str
     email: Optional[str]

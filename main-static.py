@@ -116,6 +116,7 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
         user_id=user.user_id,
         username=user.username,
         full_name=user.full_name,
+        role_id=user.role.role_id,
         role_name=user.role.role_name,
         role_key=user.role.role_key,
         email=user.email,
