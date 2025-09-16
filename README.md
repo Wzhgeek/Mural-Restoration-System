@@ -143,7 +143,7 @@ git clone <repository-url>
 cd res
 ```
 
-### 3. 启动基础服务
+### 3. 启动docker与初始化数据库
 
 ```bash
 # 启动Docker容器服务（PostgreSQL、MinIO、Redis）
@@ -152,6 +152,13 @@ docker-compose up -d
 # 等待服务启动完成（约30-60秒）
 docker-compose ps
 ```
+
+初始化数据库和用户：
+
+```python
+python init_database.py
+```
+
 
 ### 4. 安装Python依赖
 
