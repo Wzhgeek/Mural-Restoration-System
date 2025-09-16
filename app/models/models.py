@@ -37,6 +37,8 @@ class User(Base):
     phone = Column(String(20))
     unit = Column(String(100))  # 用户单位字段
     is_active = Column(Boolean, default=True)
+    email_verified = Column(Boolean, default=False)  # 邮箱是否已验证
+    email_verified_at = Column(TIMESTAMP(timezone=True), nullable=True)  # 邮箱验证时间
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)  # 软删除字段

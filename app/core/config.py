@@ -54,6 +54,19 @@ class Settings(BaseSettings):
     ALLOWED_IMAGE_TYPES: List[str] = Field(default=["image/jpeg", "image/png", "image/bmp", "image/tiff"], description="允许的图片类型")
     ALLOWED_FILE_TYPES: List[str] = Field(default=["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"], description="允许的文件类型")
     
+    # 邮件服务配置
+    SMTP_HOST: str = "smtp.163.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = "wangzh011031@163.com"
+    SMTP_PASSWORD: str = "your_email_password"  # 需要配置邮箱授权码
+    SMTP_USE_TLS: bool = True
+    EMAIL_FROM: str = "wangzh011031@163.com"
+    EMAIL_FROM_NAME: str = "克孜尔石窟壁画智慧修复全生命周期管理系统"
+    
+    # 邮件验证配置
+    EMAIL_VERIFICATION_CODE_EXPIRE_MINUTES: int = 10  # 验证码有效期（分钟）
+    EMAIL_VERIFICATION_CODE_LENGTH: int = 6  # 验证码长度
+    
     @validator('ALLOWED_IMAGE_TYPES', pre=True)
     def parse_image_types(cls, v):
         """解析图片类型字符串为列表"""

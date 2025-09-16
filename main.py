@@ -39,6 +39,7 @@ from app.schemas import *
 from app.auth import *
 from app.services import file_service
 from app.api import router as api_router
+from app.api.email_routes import router as email_router
 
 # ============================================================================
 # FastAPI应用实例创建和配置
@@ -89,6 +90,7 @@ else:
 
 # 注册API路由
 app.include_router(api_router)
+app.include_router(email_router)
 
 # ============================================================================
 # 基础路由和认证接口
@@ -178,6 +180,8 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
         phone=user.phone,
         unit=user.unit,  # 添加单位字段
         is_active=user.is_active,
+        email_verified=user.email_verified,  # 添加邮箱验证状态
+        email_verified_at=user.email_verified_at,  # 添加邮箱验证时间
         created_at=user.created_at
     )
     
@@ -213,6 +217,8 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         phone=current_user.phone,
         unit=current_user.unit,  # 添加单位字段
         is_active=current_user.is_active,
+        email_verified=current_user.email_verified,  # 添加邮箱验证状态
+        email_verified_at=current_user.email_verified_at,  # 添加邮箱验证时间
         created_at=current_user.created_at
     )
 
@@ -258,6 +264,8 @@ async def update_user_profile(
         phone=current_user.phone,
         unit=current_user.unit,  # 添加单位字段
         is_active=current_user.is_active,
+        email_verified=current_user.email_verified,  # 添加邮箱验证状态
+        email_verified_at=current_user.email_verified_at,  # 添加邮箱验证时间
         created_at=current_user.created_at
     )
 
