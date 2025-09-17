@@ -332,21 +332,48 @@ async function loadFolderFiles(folderItem: TreeItem) {
     const folderIndex = allTreeItems.value.findIndex(item => item.key === folderItem.key)
     if (folderIndex === -1) return
     
-    // 在该文件夹后插入文件
+    // 在该文件夹后插入文件和子文件夹
     const newItems: TreeItem[] = []
+    
+    // 收集子文件夹
+    const subfolders = new Set<string>()
     for (const file of files) {
-      newItems.push({
-        label: file.name,
-        key: file.path,
-        path: file.path,
-        type: 'file',
-        level: folderItem.level + 1,
-        ext: file.ext,
-        fileData: file
-      })
+      const pathParts = file.path.split('/')
+      const folderPath = folderItem.key
+      const relativePath = file.path.replace(folderPath + '/', '')
+      const relativeParts = relativePath.split('/')
+      
+      // 如果有子目录，添加子文件夹
+      if (relativeParts.length > 1) {
+        const subfolderName = relativeParts[0]
+        const subfolderPath = `${folderPath}/${subfolderName}`
+        
+        if (!subfolders.has(subfolderPath)) {
+          subfolders.add(subfolderPath)
+          newItems.push({
+            label: subfolderName,
+            key: subfolderPath,
+            path: subfolderPath,
+            type: 'folder',
+            level: folderItem.level + 1,
+            expanded: false
+          })
+        }
+      } else {
+        // 直接在当前目录下的文件
+        newItems.push({
+          label: file.name,
+          key: file.path,
+          path: file.path,
+          type: 'file',
+          level: folderItem.level + 1,
+          ext: file.ext,
+          fileData: file
+        })
+      }
     }
     
-    // 插入文件到树中
+    // 插入文件和子文件夹到树中
     allTreeItems.value.splice(folderIndex + 1, 0, ...newItems)
   } catch (error) {
     console.error('加载文件夹文件失败:', error)

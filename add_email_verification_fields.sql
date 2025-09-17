@@ -14,3 +14,4 @@ COMMENT ON COLUMN users.email_verified_at IS '邮箱验证时间';
 -- 显示表结构确认
 \d users;
 
+

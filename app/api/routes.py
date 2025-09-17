@@ -1320,23 +1320,53 @@ async def get_work_archive_folders(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取工作档案文件夹结构"""
+    """获取工作档案文件夹结构 - 从MinIO knowledge-files桶获取"""
     
-    # 根据submission_info分组创建文件夹结构
-    folders = db.query(KnowledgeSystemFile.submission_info).filter(
-        KnowledgeSystemFile.deleted_at.is_(None),
-        KnowledgeSystemFile.status == 'active'
-    ).distinct().all()
-    
-    folder_structure = []
-    for folder in folders:
-        folder_structure.append({
-            "label": folder[0],
-            "key": folder[0],
-            "children": []
-        })
-    
-    return folder_structure
+    try:
+        # 从MinIO获取knowledge-files桶的目录结构
+        bucket_name = "knowledge-files"
+        directory_structure = file_service.get_directory_structure(bucket_name)
+        
+        # 构建树形结构
+        folder_structure = []
+        
+        # 处理根目录下的文件夹
+        root_folders = set()
+        for folder_path in directory_structure["folders"]:
+            # 获取根级目录（第一级目录）
+            path_parts = folder_path.split('/')
+            if len(path_parts) > 0 and path_parts[0]:
+                root_folders.add(path_parts[0])
+        
+        # 为每个根级目录创建结构
+        for root_folder in sorted(root_folders):
+            folder_structure.append({
+                "label": root_folder,
+                "key": root_folder,
+                "children": []
+            })
+        
+        return folder_structure
+        
+    except Exception as e:
+        # 如果MinIO访问失败，回退到数据库方式
+        print(f"MinIO访问失败，回退到数据库方式: {e}")
+        
+        # 根据submission_info分组创建文件夹结构
+        folders = db.query(KnowledgeSystemFile.submission_info).filter(
+            KnowledgeSystemFile.deleted_at.is_(None),
+            KnowledgeSystemFile.status == 'active'
+        ).distinct().all()
+        
+        folder_structure = []
+        for folder in folders:
+            folder_structure.append({
+                "label": folder[0],
+                "key": folder[0],
+                "children": []
+            })
+        
+        return folder_structure
 
 @router.get("/work-archive/files")
 async def get_work_archive_files(
@@ -1346,58 +1376,112 @@ async def get_work_archive_files(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取工作档案文件列表"""
+    """获取工作档案文件列表 - 从MinIO knowledge-files桶获取"""
     
-    query = db.query(KnowledgeSystemFile).filter(
-        KnowledgeSystemFile.deleted_at.is_(None),
-        KnowledgeSystemFile.status == 'active'
-    )
-    
-    # 按文件夹筛选
-    if dir:
-        query = query.filter(KnowledgeSystemFile.submission_info == dir)
-    
-    # 按文件类型筛选
-    if file_type:
-        query = query.filter(KnowledgeSystemFile.file_type == file_type)
-    
-    # 关键词搜索
-    if keyword:
-        query = query.filter(
-            or_(
-                KnowledgeSystemFile.filename.contains(keyword),
-                KnowledgeSystemFile.unit.contains(keyword),
-                KnowledgeSystemFile.remark.contains(keyword)
-            )
+    try:
+        # 从MinIO获取knowledge-files桶的文件列表
+        bucket_name = "knowledge-files"
+        
+        if dir:
+            # 获取指定目录下的文件
+            files = file_service.get_files_in_directory(dir, bucket_name)
+        else:
+            # 获取所有文件
+            directory_structure = file_service.get_directory_structure(bucket_name)
+            files = directory_structure["files"]
+        
+        # 应用筛选条件
+        filtered_files = []
+        
+        for file in files:
+            # 关键词搜索
+            if keyword:
+                if keyword.lower() not in file["name"].lower():
+                    continue
+            
+            # 文件类型筛选
+            if file_type:
+                # 将前端分类映射到文件扩展名
+                type_mapping = {
+                    'image': ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.tif', '.tiff'],
+                    'video': ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v'],
+                    'document': ['.pdf', '.doc', '.docx', '.txt', '.md', '.caj'],
+                    'code': ['.js', '.ts', '.vue', '.html', '.css', '.json', '.yaml', '.yml', '.py']
+                }
+                
+                if file_type in type_mapping:
+                    if file["ext"] not in type_mapping[file_type]:
+                        continue
+            
+            # 转换为前端需要的格式
+            file_info = {
+                "name": file["name"],
+                "path": file["path"],
+                "ext": file["ext"],
+                "size": file["size"],
+                "mtime": file["mtime"],
+                "category": file["category"],
+                "url": file["url"]
+            }
+            
+            filtered_files.append(file_info)
+        
+        return filtered_files
+        
+    except Exception as e:
+        # 如果MinIO访问失败，回退到数据库方式
+        print(f"MinIO访问失败，回退到数据库方式: {e}")
+        
+        query = db.query(KnowledgeSystemFile).filter(
+            KnowledgeSystemFile.deleted_at.is_(None),
+            KnowledgeSystemFile.status == 'active'
         )
-    
-    files = query.order_by(desc(KnowledgeSystemFile.created_at)).all()
-    
-    # 转换为前端需要的格式
-    file_list = []
-    for file in files:
-        # 获取文件扩展名
-        ext = file.filename.split('.')[-1].lower() if '.' in file.filename else ''
         
-        # 确定文件类别
-        category = "other"
-        if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'tif', 'tiff']:
-            category = "image"
-        elif ext in ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v']:
-            category = "video"
-        elif ext in ['pdf', 'doc', 'docx', 'txt', 'md', 'caj']:
-            category = "document"
-        elif ext in ['js', 'ts', 'vue', 'html', 'css', 'json', 'yaml', 'yml', 'py']:
-            category = "code"
+        # 按文件夹筛选
+        if dir:
+            query = query.filter(KnowledgeSystemFile.submission_info == dir)
         
-        file_list.append({
-            "name": file.filename,
-            "path": f"{file.submission_info}/{file.filename}",
-            "ext": f".{ext}",
-            "size": 0,  # 文件大小暂时设为0，可以从MinIO获取
-            "mtime": file.created_at.isoformat(),
-            "category": category,
-            "url": file.file_url
-        })
-    
-    return file_list
+        # 按文件类型筛选
+        if file_type:
+            query = query.filter(KnowledgeSystemFile.file_type == file_type)
+        
+        # 关键词搜索
+        if keyword:
+            query = query.filter(
+                or_(
+                    KnowledgeSystemFile.filename.contains(keyword),
+                    KnowledgeSystemFile.unit.contains(keyword),
+                    KnowledgeSystemFile.remark.contains(keyword)
+                )
+            )
+        
+        files = query.order_by(desc(KnowledgeSystemFile.created_at)).all()
+        
+        # 转换为前端需要的格式
+        file_list = []
+        for file in files:
+            # 获取文件扩展名
+            ext = file.filename.split('.')[-1].lower() if '.' in file.filename else ''
+            
+            # 确定文件类别
+            category = "other"
+            if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'tif', 'tiff']:
+                category = "image"
+            elif ext in ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v']:
+                category = "video"
+            elif ext in ['pdf', 'doc', 'docx', 'txt', 'md', 'caj']:
+                category = "document"
+            elif ext in ['js', 'ts', 'vue', 'html', 'css', 'json', 'yaml', 'yml', 'py']:
+                category = "code"
+            
+            file_list.append({
+                "name": file.filename,
+                "path": f"{file.submission_info}/{file.filename}",
+                "ext": f".{ext}",
+                "size": 0,  # 文件大小暂时设为0，可以从MinIO获取
+                "mtime": file.created_at.isoformat(),
+                "category": category,
+                "url": file.file_url
+            })
+        
+        return file_list

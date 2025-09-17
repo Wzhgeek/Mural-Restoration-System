@@ -471,6 +471,102 @@ def show_knowledge_system_info():
     print("  ✓ 软删除机制: 支持数据恢复")
     print("  ✓ MinIO存储: 文件存储在knowledge-files存储桶中")
 
+def initialize_minio_buckets():
+    """
+    初始化MinIO存储桶
+    
+    创建系统所需的所有MinIO存储桶：
+    - repair-file: 主存储桶（一般文件存储）
+    - knowledge-files: 知识体系文件存储桶
+    - repair-images: 修复图片存储桶
+    - archive-files: 归档文件存储桶
+    
+    Returns:
+        bool: 初始化成功返回True，否则返回False
+    """
+    try:
+        print("🪣 开始初始化MinIO存储桶...")
+        
+        # 导入MinIO相关模块
+        from minio import Minio
+        from minio.error import S3Error
+        from app.core.config import settings
+        
+        # 创建MinIO客户端
+        client = Minio(
+            settings.MINIO_ENDPOINT,
+            access_key=settings.MINIO_ACCESS_KEY,
+            secret_key=settings.MINIO_SECRET_KEY,
+            secure=settings.MINIO_SECURE
+        )
+        
+        # 定义需要创建的存储桶
+        buckets = [
+            {
+                "name": "repair-file",
+                "description": "主存储桶（一般文件存储）"
+            },
+            {
+                "name": "knowledge-files", 
+                "description": "知识体系文件存储桶"
+            },
+            {
+                "name": "repair-images",
+                "description": "修复图片存储桶"
+            },
+            {
+                "name": "archive-files",
+                "description": "归档文件存储桶"
+            }
+        ]
+        
+        created_count = 0
+        existing_count = 0
+        
+        for bucket_info in buckets:
+            bucket_name = bucket_info["name"]
+            description = bucket_info["description"]
+            
+            try:
+                # 检查存储桶是否存在
+                if client.bucket_exists(bucket_name):
+                    print(f"  ✓ 存储桶 '{bucket_name}' 已存在 ({description})")
+                    existing_count += 1
+                else:
+                    # 创建存储桶
+                    client.make_bucket(bucket_name)
+                    print(f"  ✅ 创建存储桶 '{bucket_name}' ({description})")
+                    created_count += 1
+                    
+            except S3Error as e:
+                print(f"  ❌ 创建存储桶 '{bucket_name}' 失败: {e}")
+                continue
+            except Exception as e:
+                print(f"  ❌ 存储桶 '{bucket_name}' 操作异常: {e}")
+                continue
+        
+        # 显示结果统计
+        print(f"\n📊 MinIO存储桶初始化结果:")
+        print(f"  ✅ 新创建: {created_count} 个存储桶")
+        print(f"  ✓ 已存在: {existing_count} 个存储桶")
+        print(f"  📝 总计: {created_count + existing_count} 个存储桶")
+        
+        if created_count > 0 or existing_count > 0:
+            print("✅ MinIO存储桶初始化完成")
+            return True
+        else:
+            print("⚠️ 没有成功创建或找到任何存储桶")
+            return False
+            
+    except ImportError as e:
+        print(f"❌ MinIO模块导入失败: {e}")
+        print("⚠️ 请确保已安装MinIO依赖: pip install minio")
+        return False
+    except Exception as e:
+        print(f"❌ MinIO存储桶初始化失败: {e}")
+        print("⚠️ 请确保MinIO服务正在运行")
+        return False
+
 
 def main():
     """
