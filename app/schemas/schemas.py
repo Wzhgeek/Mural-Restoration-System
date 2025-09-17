@@ -42,6 +42,8 @@ class UserResponse(BaseModel):
     phone: Optional[str]
     unit: Optional[str]  # 用户单位字段
     is_active: bool
+    email_verified: bool  # 邮箱是否已验证
+    email_verified_at: Optional[datetime]  # 邮箱验证时间
     created_at: datetime
     
     class Config:
@@ -302,5 +304,58 @@ class KnowledgeSystemFileFilter(BaseModel):
     keyword: Optional[str] = None
     page: int = 1
     limit: int = 20
+# 邮件验证相关模型
+class EmailVerificationRequest(BaseModel):
+    email: EmailStr
+    
+    @validator('email')
+    def validate_email(cls, v):
+        if not v:
+            raise ValueError('邮箱地址不能为空')
+        return v
+
+class EmailVerificationCode(BaseModel):
+    email: EmailStr
+    code: str
+    
+    @validator('code')
+    def validate_code(cls, v):
+        if not v or len(v) != 6 or not v.isdigit():
+            raise ValueError('验证码必须是6位数字')
+        return v
+
+class EmailVerificationResponse(BaseModel):
+    success: bool
+    message: str
+    email: Optional[str] = None
+
+class UserRegistrationWithEmail(BaseModel):
+    username: str
+    password: str
+    full_name: str
+    role_key: str
+    email: EmailStr
+    phone: Optional[str] = None
+    unit: Optional[str] = None
+    
+    @validator('username')
+    def validate_username(cls, v):
+        if len(v) < 3 or len(v) > 50:
+            raise ValueError('用户名长度必须在3-50个字符之间')
+        if not v.isalnum():
+            raise ValueError('用户名只能包含字母和数字')
+        return v
+    
+    @validator('password')
+    def validate_password(cls, v):
+        if len(v) < 6:
+            raise ValueError('密码长度至少6个字符')
+        return v
+    
+    @validator('full_name')
+    def validate_full_name(cls, v):
+        if len(v) < 2 or len(v) > 100:
+            raise ValueError('姓名长度必须在2-100个字符之间')
+        return v
 
 

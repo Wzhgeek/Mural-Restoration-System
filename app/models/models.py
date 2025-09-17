@@ -37,13 +37,16 @@ class User(Base):
     phone = Column(String(20))
     unit = Column(String(100))  # 用户单位字段
     is_active = Column(Boolean, default=True)
+    email_verified = Column(Boolean, default=False)  # 邮箱是否已验证
+    email_verified_at = Column(TIMESTAMP(timezone=True), nullable=True)  # 邮箱验证时间
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
     deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)  # 软删除字段
     
     # 关系
     role = relationship("Role", back_populates="users")
-    initiated_workflows = relationship("Workflow", back_populates="initiator")
+    initiated_workflows = relationship("Workflow", foreign_keys="Workflow.initiator_id", back_populates="initiator")
+    user_workflows = relationship("Workflow", foreign_keys="Workflow.user_id", back_populates="user")  # 用户关联的工作流
     submitted_forms = relationship("Form", back_populates="submitter")
     step_logs = relationship("StepLog", back_populates="operator")
     evaluations = relationship("Evaluation", back_populates="evaluator")
@@ -57,6 +60,8 @@ class Workflow(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text)
     initiator_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)  # 用户ID字段
+    username = Column(String(50), nullable=True)  # 用户名字段
     current_step = Column(Integer, default=1)
     status = Column(String(20), default='draft')  # draft, running, paused, finished, revoked
     is_finalized = Column(Boolean, default=False)
@@ -65,7 +70,8 @@ class Workflow(Base):
     deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)  # 软删除字段
     
     # 关系
-    initiator = relationship("User", back_populates="initiated_workflows")
+    initiator = relationship("User", foreign_keys=[initiator_id], back_populates="initiated_workflows")
+    user = relationship("User", foreign_keys=[user_id], back_populates="user_workflows")  # 用户关系
     forms = relationship("Form", back_populates="workflow")
     evaluations = relationship("Evaluation", back_populates="workflow")
     rollback_requests = relationship("RollbackRequest", back_populates="workflow")

@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS workflows (
     title VARCHAR(255) NOT NULL,
     description TEXT,
     initiator_id INTEGER NOT NULL REFERENCES users(user_id),
+    user_id INTEGER REFERENCES users(user_id),  -- 用户ID字段
+    username VARCHAR(50),  -- 用户名字段
     current_step INTEGER DEFAULT 1,
     status VARCHAR(20) DEFAULT 'draft',
     is_finalized BOOLEAN DEFAULT FALSE,
@@ -161,6 +163,8 @@ ON CONFLICT (config_key) DO NOTHING;
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_role_id ON users(role_id);
 CREATE INDEX IF NOT EXISTS idx_workflows_initiator_id ON workflows(initiator_id);
+CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id);
+CREATE INDEX IF NOT EXISTS idx_workflows_username ON workflows(username);
 CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status);
 CREATE INDEX IF NOT EXISTS idx_forms_workflow_id ON forms(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_forms_submitter_id ON forms(submitter_id);
