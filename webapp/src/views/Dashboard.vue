@@ -23,74 +23,403 @@
         </t-col>
       </t-row>
 
-      <!-- 图表区域 -->
-      <t-row :gutter="[16, 16]" class="charts-row">
-        <t-col :xs="12" :xl="8">
-          <t-card class="dashboard-chart-card">
+      <!-- 甘特图区域 -->
+      <div class="gantt-row">
+        <t-card class="gantt-card">
             <template #header>
-              <div class="chart-header">
-                <h3 class="chart-title">工作流趋势</h3>
-                <t-date-range-picker
-                  v-model="dateRange"
-                  @change="handleDateRangeChange"
-                  :presets="datePresets"
-                  size="small"
-                />
+              <div class="card-header">
+                <h3>任务进度甘特图</h3>
               </div>
             </template>
-            <div id="trendChart" class="chart-container"></div>
+            <!-- 数据统计信息 -->
+            <div v-if="ganttSeries.length > 0" style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 14px; color: #666;">
+              <span>共 {{ ganttSeries[0]?.data?.length || 0 }} 个任务</span>
+            </div>
+            
+            <!-- 甘特图 -->
+            <div v-if="ganttSeries.length > 0" class="gantt-chart-container">
+              <apexchart
+                type="rangeBar"
+                height="100%"
+                width="100%"
+                :options="ganttOptions"
+                :series="ganttSeries"
+              />
+            </div>
+            <!-- 没有数据时显示提示信息 -->
+            <div v-else class="gantt-no-data">
+              <div class="no-data-icon">
+                <t-icon name="chart" size="64px" />
+              </div>
+              <h4>暂无任务数据</h4>
+              <p>当前没有可显示的任务进度信息</p>
+              <p class="text-secondary">请先创建修复任务或检查数据连接</p>
+            </div>
           </t-card>
-        </t-col>
-        
-        <t-col :xs="12" :xl="4">
-          <t-card class="dashboard-chart-card">
-            <template #header>
-              <h3 class="chart-title">评分分布</h3>
-            </template>
-            <div id="scoreChart" class="chart-container"></div>
-          </t-card>
-        </t-col>
-      </t-row>
+      </div>
 
       <!-- 最近活动 -->
-      <div class="recent-activities-section">
-        <t-card class="recent-activities-card">
-          <template #header>
-            <h3 class="chart-title">最近活动</h3>
-          </template>
-          <div v-if="recentActivities.length === 0" class="no-data">
-            <t-icon name="inbox" size="48px" />
-            <p>暂无活动记录</p>
-          </div>
-          <div v-else class="activities-list">
-            <div v-for="activity in recentActivities" :key="activity.id" class="activity-item">
-              <div class="activity-icon" :class="`activity-icon-${getActivityColor(activity.action)}`">
-                {{ getActivityIcon(activity.action) }}
-              </div>
-              <div class="activity-content">
-                <div class="activity-main">
-                  <strong>{{ activity.operator }}</strong>
-                  <span class="activity-action">{{ getActivityText(activity.action) }}</span>
-                  <span v-if="activity.workflow_title" class="activity-target">「{{ activity.workflow_title }}」</span>
-                </div>
-                <div class="activity-time">{{ activity.time }}</div>
-                <div v-if="activity.comment" class="activity-comment">{{ activity.comment }}</div>
-              </div>
-            </div>
-          </div>
-        </t-card>
-      </div>
     </div>
   </Layout>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, nextTick, shallowRef } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import * as echarts from 'echarts'
 import { getDashboardData } from '@/api/dashboard'
 import Trend from '@/components/Trend.vue'
 import Layout from '@/components/Layout.vue'
+import VueApexCharts from 'vue3-apexcharts'
+
+// ====== 甘特图（轻量展示）最小脚本，直接写进仪表盘页面 ======
+const ganttSeries = shallowRef([])
+const ganttOptions = shallowRef({
+  chart: { 
+    type: 'rangeBar', 
+    toolbar: { show: false }, 
+    height: '100%',
+    width: '100%',
+    animations: {
+      enabled: true,
+      easing: 'easeinout',
+      speed: 800
+    },
+    parentHeightOffset: 0,
+    zoom: {
+      enabled: false
+    },
+    pan: {
+      enabled: false
+    }
+  },
+  plotOptions: { 
+    bar: { 
+      horizontal: true, 
+      rangeBarGroupRows: true,
+      barHeight: '70%',
+      borderRadius: 4,
+      distributed: true
+    } 
+  },
+  xaxis: { 
+    type: 'datetime',
+    labels: {
+      format: 'yyyy/MM/dd',
+      style: {
+        fontSize: '11px',
+        colors: '#1f2937',
+        fontWeight: '500'
+      },
+      rotate: 0,
+      trim: false,
+      hideOverlappingLabels: true,
+      datetimeUTC: false
+    },
+    axisBorder: {
+      show: true,
+      color: '#e0e0e0',
+      strokeWidth: 1
+    },
+    axisTicks: {
+      show: true,
+      color: '#e0e0e0',
+      height: 6
+    },
+    tickAmount: 'dataPoints',
+    min: undefined,
+    max: undefined
+  },
+  yaxis: {
+    labels: {
+      style: {
+        fontSize: '12px',
+        fontWeight: '500',
+        colors: '#1f2937'
+      },
+      maxWidth: 250,
+      trim: false,
+      offsetX: 0,
+      formatter: function(value) {
+        // 确保长标题能够完整显示，如果太长则截断
+        if (value && value.length > 20) {
+          return value.substring(0, 20) + '...'
+        }
+        return value
+      }
+    },
+    axisBorder: {
+      show: true,
+      color: '#e0e0e0'
+    }
+  },
+  dataLabels: {
+    enabled: true,
+    formatter: function(val, opts) {
+      const data = opts.w.config.series[opts.seriesIndex].data[opts.dataPointIndex]
+      return data.meta?.progress ? `${data.meta.progress}%` : ''
+    },
+    style: {
+      fontSize: '10px',
+      fontWeight: 'bold'
+    }
+  },
+  tooltip: {
+    enabled: true,
+    custom: function({series, seriesIndex, dataPointIndex, w}) {
+      const data = w.config.series[seriesIndex].data[dataPointIndex]
+      const startDate = new Date(data.y[0]).toLocaleDateString()
+      const endDate = new Date(data.y[1]).toLocaleDateString()
+      const progress = data.meta?.progress || 0
+      const assignee = data.meta?.assignee || '未分配'
+      const status = data.meta?.status || '未知'
+      
+      // 获取实际的任务条颜色
+      let color = data.fillColor
+      
+      // 如果fillColor不存在，尝试从meta中获取colorIndex
+      if (!color && data.meta?.colorIndex !== undefined) {
+        color = w.config.colors[data.meta.colorIndex]
+      }
+      
+      // 如果还是没有颜色，根据标题重新计算
+      if (!color) {
+        const colorIndex = getTaskColorIndex(data.x, dataPointIndex)
+        color = w.config.colors[colorIndex]
+      }
+      
+      // 最后的备用颜色
+      if (!color) {
+        color = '#0052d9'
+      }
+      
+      return `
+        <div style="padding: 12px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-left: 4px solid ${color};">
+          <div style="font-weight: bold; margin-bottom: 8px; color: #1f2937;">${data.x}</div>
+          <div style="margin-bottom: 4px;"><strong>开始:</strong> ${startDate}</div>
+          <div style="margin-bottom: 4px;"><strong>结束:</strong> ${endDate}</div>
+          <div style="margin-bottom: 4px;"><strong>进度:</strong> ${progress}%</div>
+          <div style="margin-bottom: 4px;"><strong>负责人:</strong> ${assignee}</div>
+          <div style="margin-bottom: 4px;"><strong>状态:</strong> <span style="color: ${color}; font-weight: 500;">${status}</span></div>
+          <div style="font-size: 11px; color: #666; margin-top: 6px;">标题颜色: <span style="display: inline-block; width: 12px; height: 12px; background: ${color}; border-radius: 2px; vertical-align: middle; margin-left: 4px;"></span></div>
+        </div>
+      `
+    }
+  },
+  grid: {
+    show: true,
+    borderColor: '#e0e0e0',
+    strokeDashArray: 3,
+    padding: {
+      left: 30,
+      right: 15,
+      top: 15,
+      bottom: 25
+    }
+  },
+  colors: [
+    '#0052d9', // 主蓝色 - 专业
+    '#00a870', // 绿色 - 成功/进行中
+    '#ed7b2f', // 橙色 - 警告/待处理
+    '#d54941', // 红色 - 紧急/已完成
+    '#722ed1', // 紫色 - 特殊任务
+    '#13c2c2', // 青色 - 新任务
+    '#fa8c16', // 金橙色 - 高优先级
+    '#52c41a', // 亮绿色 - 低优先级
+    '#1890ff', // 天蓝色 - 默认
+    '#f5222d'  // 深红色 - 取消
+  ],
+  legend: {
+    show: false
+  },
+  responsive: [{
+    breakpoint: 768,
+    options: {
+      chart: {
+        width: '100%',
+        zoom: {
+          enabled: false
+        },
+        pan: {
+          enabled: false
+        }
+      },
+      yaxis: {
+        labels: {
+          maxWidth: 150,
+          formatter: function(value) {
+            if (value && value.length > 12) {
+              return value.substring(0, 12) + '...'
+            }
+            return value
+          }
+        }
+      },
+      grid: {
+        padding: {
+          left: 25,
+          right: 10,
+          top: 10,
+          bottom: 20
+        }
+      },
+      xaxis: {
+        labels: {
+          format: 'yyyy/MM/dd',
+          style: {
+            fontSize: '10px'
+          }
+        }
+      }
+    }
+  }, {
+    breakpoint: 480,
+    options: {
+      chart: {
+        width: '100%',
+        zoom: {
+          enabled: false
+        },
+        pan: {
+          enabled: false
+        }
+      },
+      yaxis: {
+        labels: {
+          maxWidth: 120,
+          formatter: function(value) {
+            if (value && value.length > 10) {
+              return value.substring(0, 10) + '...'
+            }
+            return value
+          }
+        }
+      },
+      grid: {
+        padding: {
+          left: 20,
+          right: 5,
+          top: 5,
+          bottom: 15
+        }
+      },
+      xaxis: {
+        labels: {
+          format: 'yyyy/MM/dd',
+          style: {
+            fontSize: '9px'
+          },
+          rotate: -45
+        }
+      }
+    }
+  }]
+})
+
+// 根据任务标题获取颜色索引
+function getTaskColorIndex(taskTitle, index) {
+  // 基于任务标题的哈希值来分配颜色，确保相同标题的任务颜色一致
+  let hash = 0
+  if (taskTitle) {
+    // 使用更复杂的哈希算法，确保更好的颜色分布
+    for (let i = 0; i < taskTitle.length; i++) {
+      const char = taskTitle.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash // 转换为32位整数
+    }
+    
+    // 添加标题长度作为额外的哈希因子
+    hash = hash + taskTitle.length * 31
+  }
+  
+  // 使用哈希值的绝对值来获取颜色索引
+  const colorIndex = Math.abs(hash) % ganttOptions.value.colors.length
+  return colorIndex
+}
+
+async function loadGantt() {
+  try {
+    const res = await fetch('/api/gantt/tasks')
+    if (!res.ok) throw new Error('API请求失败')
+    const tasks = await res.json()
+    
+    // 处理数据，确保时间格式正确
+    const processedData = (tasks || []).map((t, index) => {
+      const startTime = new Date(t.start).getTime()
+      const endTime = new Date(t.end).getTime()
+      
+      // 确保时间范围有效
+      if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) {
+        return null
+      }
+      
+      // 根据任务标题分配颜色
+      const colorIndex = getTaskColorIndex(t.name, index)
+      
+      return {
+        x: t.name,
+        y: [startTime, endTime],
+        fillColor: ganttOptions.value.colors[colorIndex],
+        meta: { 
+          progress: t.progress ?? 0, 
+          assignee: t.assignee, 
+          status: t.status,
+          workflow_id: t.workflow_id,
+          current_step: t.current_step,
+          total_forms: t.total_forms,
+          colorIndex: colorIndex
+        }
+      }
+    }).filter(item => item !== null) // 过滤掉无效数据
+    
+    // 更新甘特图数据
+    ganttSeries.value = [{
+      name: '任务',
+      data: processedData
+    }]
+    
+    // 动态计算时间范围
+    if (processedData.length > 0) {
+      const allTimes = processedData.flatMap(d => d.y)
+      const minTime = Math.min(...allTimes)
+      const maxTime = Math.max(...allTimes)
+      
+      // 确保时间范围有效
+      if (minTime && maxTime && minTime < maxTime) {
+        // 添加一些边距
+        const timeRange = maxTime - minTime
+        const margin = Math.max(timeRange * 0.1, 24 * 60 * 60 * 1000) // 至少1天的边距
+        
+        // 更新X轴范围
+        ganttOptions.value.xaxis.min = minTime - margin
+        ganttOptions.value.xaxis.max = maxTime + margin
+        
+        // 根据时间范围调整显示格式
+        const daysDiff = (maxTime - minTime) / (1000 * 60 * 60 * 24)
+        if (daysDiff <= 7) {
+          // 一周内显示具体日期
+          ganttOptions.value.xaxis.labels.format = 'yyyy/MM/dd'
+        } else if (daysDiff <= 30) {
+          // 一个月内显示年/月/日
+          ganttOptions.value.xaxis.labels.format = 'yyyy/MM/dd'
+        } else if (daysDiff <= 365) {
+          // 一年内显示年/月
+          ganttOptions.value.xaxis.labels.format = 'yyyy/MM'
+        } else {
+          // 更长时间显示年/月
+          ganttOptions.value.xaxis.labels.format = 'yyyy/MM'
+        }
+      } else {
+        // 如果时间范围无效，重置为默认值
+        ganttOptions.value.xaxis.min = undefined
+        ganttOptions.value.xaxis.max = undefined
+      }
+    }
+  } catch (error) {
+    console.error('加载甘特图数据失败:', error)
+    MessagePlugin.error('加载甘特图失败')
+  }
+}
 
 /**
  * Dashboard页面组件
@@ -591,6 +920,24 @@ const handleDateRangeChange = (value) => {
   // 这里可以根据新的日期范围重新加载数据
 }
 
+// 重新计算甘特图时间范围
+const recalculateGanttTimeRange = () => {
+  if (ganttSeries.value.length > 0 && ganttSeries.value[0].data.length > 0) {
+    const processedData = ganttSeries.value[0].data
+    const allTimes = processedData.flatMap(d => d.y)
+    const minTime = Math.min(...allTimes)
+    const maxTime = Math.max(...allTimes)
+    
+    if (minTime && maxTime && minTime < maxTime) {
+      const timeRange = maxTime - minTime
+      const margin = Math.max(timeRange * 0.1, 24 * 60 * 60 * 1000)
+      
+      ganttOptions.value.xaxis.min = minTime - margin
+      ganttOptions.value.xaxis.max = maxTime + margin
+    }
+  }
+}
+
 // 窗口大小变化时重新渲染图表
 const handleResize = () => {
   if (trendChart) {
@@ -605,6 +952,16 @@ const handleResize = () => {
   if (refundChart) {
     refundChart.resize()
   }
+  
+  // 甘特图会自动响应容器大小变化，但我们可以触发重新渲染
+  if (ganttSeries.value.length > 0) {
+    // 重新计算时间范围
+    recalculateGanttTimeRange()
+    // 触发甘特图重新渲染
+    nextTick(() => {
+      // ApexCharts会自动处理容器大小变化
+    })
+  }
 }
 
 // 组件挂载时初始化
@@ -612,6 +969,9 @@ onMounted(() => {
   if (checkAuth()) {
     loadDashboardData()
   }
+  
+  // 加载甘特图数据
+  loadGantt()
   
   // 监听窗口大小变化
   window.addEventListener('resize', handleResize)
@@ -641,10 +1001,10 @@ onUnmounted(() => {
 /* Dashboard页面样式 */
 .page-content {
   padding: 10px;
-  height: 90%;
+  height: 95vh;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   overflow: hidden;
 }
 
@@ -659,6 +1019,103 @@ onUnmounted(() => {
   margin-bottom: 0;
 }
 
+.gantt-row {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  width: 100%;
+}
+
+.gantt-card {
+  height: 100%;
+  padding: 15px 15px 15px 25px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.gantt-card :deep(.t-card__body) {
+  padding: 0;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.gantt-chart-container {
+  flex: 1;
+  width: 100%;
+  min-height: 500px;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.gantt-chart-container :deep(.apexcharts-canvas) {
+  width: 100% !important;
+}
+
+.gantt-chart-container :deep(.apexcharts-svg) {
+  width: 100% !important;
+}
+
+.gantt-chart-container :deep(.apexcharts-yaxis) {
+  min-width: 200px;
+}
+
+.gantt-chart-container :deep(.apexcharts-yaxis-label) {
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+.gantt-chart-container :deep(.apexcharts-xaxis-label) {
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+.gantt-chart-container :deep(.apexcharts-xaxis) {
+  min-height: 50px;
+}
+
+.gantt-no-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 500px;
+  color: #86909c;
+  text-align: center;
+}
+
+.gantt-no-data .no-data-icon {
+  margin-bottom: 20px;
+  opacity: 0.6;
+}
+
+.gantt-no-data h4 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.gantt-no-data p {
+  margin: 5px 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.gantt-no-data .text-secondary {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
 .recent-activities-section {
 /* 上边距 */
   margin: 30px 0 0 0;
@@ -668,8 +1125,8 @@ onUnmounted(() => {
 }
 
 .dashboard-item {
-  padding: 20px 24px;
-  height: 100px;
+  padding: 16px 20px;
+  height: 90px;
   position: relative;
   overflow: hidden;
 }
@@ -974,6 +1431,7 @@ onUnmounted(() => {
   .page-content {
     padding: 5px;
     gap: 4px;
+    height: 100vh;
   }
 
   .charts-row {
@@ -981,28 +1439,28 @@ onUnmounted(() => {
   }
 
   .dashboard-item {
-    padding: 16px 20px;
-    height: 90px;
+    padding: 12px 16px;
+    height: 80px;
   }
 
-  .dashboard-chart-card {
-    padding: 12px;
+  .gantt-card {
+    padding: 10px;
   }
 
-  .recent-activities-card {
-    padding: 12px;
+  .gantt-chart-container {
+    min-height: 400px;
   }
 
-  .chart-container {
-    min-height: 180px;
-    max-height: 240px;
+  .gantt-no-data {
+    min-height: 400px;
   }
 }
 
 @media (max-width: 480px) {
   .page-content {
-    padding: 8px;
-    gap: 8px;
+    padding: 5px;
+    gap: 5px;
+    height: 100vh;
   }
 
   .charts-row {
@@ -1010,21 +1468,28 @@ onUnmounted(() => {
   }
 
   .dashboard-item {
-    padding: 12px 16px;
-    height: 80px;
+    padding: 10px 12px;
+    height: 70px;
   }
 
-  .dashboard-chart-card {
+  .gantt-card {
     padding: 8px;
   }
 
-  .recent-activities-card {
-    padding: 8px;
+  .gantt-chart-container {
+    min-height: 350px;
   }
 
-  .chart-container {
-    min-height: 160px;
-    max-height: 200px;
+  .gantt-no-data {
+    min-height: 350px;
+  }
+
+  .gantt-no-data h4 {
+    font-size: 16px;
+  }
+
+  .gantt-no-data p {
+    font-size: 12px;
   }
 }
 </style>

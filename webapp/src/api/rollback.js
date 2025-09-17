@@ -19,7 +19,7 @@ import request from './request.js'
  */
 export const getRollbackHistory = (params = {}) => {
   return request({
-    url: '/api/rollback-requests',
+    url: '/rollback-requests',
     method: 'GET',
     params: {
       search: params.search || '',
@@ -38,7 +38,7 @@ export const getRollbackHistory = (params = {}) => {
  */
 export const getRollbackDetail = (rollbackId) => {
   return request({
-    url: `/api/rollback-requests/${rollbackId}`,
+    url: `/rollback-requests/${rollbackId}`,
     method: 'GET'
   })
 }
@@ -50,7 +50,7 @@ export const getRollbackDetail = (rollbackId) => {
  */
 export const deleteRollback = (rollbackId) => {
   return request({
-    url: `/api/rollback-requests/${rollbackId}`,
+    url: `/rollback-requests/${rollbackId}`,
     method: 'DELETE'
   })
 }
@@ -62,7 +62,7 @@ export const deleteRollback = (rollbackId) => {
  */
 export const adminDeleteRollback = (rollbackId) => {
   return request({
-    url: `/api/admin/rollback-requests/${rollbackId}`,
+    url: `/admin/rollback-requests/${rollbackId}`,
     method: 'DELETE'
   })
 }
@@ -74,7 +74,7 @@ export const adminDeleteRollback = (rollbackId) => {
  */
 export const batchDeleteRollbacks = (rollbackIds) => {
   return request({
-    url: '/api/admin/rollback-requests/batch-delete',
+    url: '/admin/rollback-requests/batch-delete',
     method: 'POST',
     data: { ids: rollbackIds }
   })
@@ -89,7 +89,7 @@ export const batchDeleteRollbacks = (rollbackIds) => {
  */
 export const approveRollback = (rollbackId, action, comment = '') => {
   return request({
-    url: `/api/rollback-requests/${rollbackId}/approve`,
+    url: `/rollback-requests/${rollbackId}/approve`,
     method: 'POST',
     data: {
       approve: action === 'approved',
@@ -111,7 +111,7 @@ export const approveRollback = (rollbackId, action, comment = '') => {
  */
 export const getRollbackStats = () => {
   return request({
-    url: '/api/rollback-requests/stats',
+    url: '/rollback-requests/stats',
     method: 'GET'
   })
 }

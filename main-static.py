@@ -116,7 +116,6 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
         user_id=user.user_id,
         username=user.username,
         full_name=user.full_name,
-        role_id=user.role.role_id,
         role_name=user.role.role_name,
         role_key=user.role.role_key,
         email=user.email,
@@ -689,6 +688,18 @@ async def create_workflow(
     Returns:
         WorkflowResponse: 创建成功的工作流响应
     """
+    # 检查标题是否已存在
+    existing_workflow = db.query(Workflow).filter(
+        Workflow.title == workflow_data.title,
+        Workflow.deleted_at.is_(None)  # 排除已删除的工作流
+    ).first()
+    
+    if existing_workflow:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="工作流标题已存在，请使用其他标题"
+        )
+    
     # 创建新的工作流实例
     workflow = Workflow(
         title=workflow_data.title,

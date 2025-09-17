@@ -36,7 +36,7 @@ PIPFILE.lock
 .env
 .env.local
 .env.*.local
-
+venv/
 # IDE 和编辑器文件
 .trae/
 .vscode/

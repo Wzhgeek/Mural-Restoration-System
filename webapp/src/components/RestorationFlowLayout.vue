@@ -38,7 +38,7 @@
       </div>
       
       <!-- 导航按钮 -->
-      <div class="flow-actions" v-if="store.currentStep < 4">
+      <div class="flow-actions" v-if="store.currentStep < 5">
         <t-button 
           @click="goBack" 
           :disabled="!store.canGoBack || store.isSubmitting"
@@ -54,7 +54,7 @@
           theme="primary" 
           @click="goNext" 
           :disabled="!store.canGoNext || store.isSubmitting"
-          :loading="store.isSubmitting && store.currentStep === 3"
+          :loading="store.isSubmitting && store.currentStep === 4"
         >
           {{ store.getNextButtonText }}
           <template #suffix>
@@ -81,6 +81,23 @@
         </t-space>
       </div>
     </t-dialog>
+
+    <!-- 质量监督确认对话框 -->
+    <t-dialog
+      v-model:visible="showQualityDialog"
+      header="质量监督确认"
+      width="400px"
+      :footer="false"
+    >
+      <p>{{ qualityDialogMessage }}</p>
+      
+      <div class="dialog-footer">
+        <t-space>
+          <t-button theme="default" @click="cancelQualitySupervision">取消</t-button>
+          <t-button theme="primary" @click="confirmQualitySupervision">确认进行质量监督</t-button>
+        </t-space>
+      </div>
+    </t-dialog>
   </Layout>
 </template>
 
@@ -103,6 +120,8 @@ const route = useRoute()
 const store = useRestorationFlowStore()
 
 const showExitDialog = ref(false)
+const showQualityDialog = ref(false)
+const qualityDialogMessage = ref('')
 
 // 步骤选项配置
 const stepOptions = computed(() => 
@@ -116,7 +135,7 @@ const stepOptions = computed(() =>
 
 // 页面离开检查
 const checkUnsavedChanges = () => {
-  if (store.hasChanges && store.currentStep !== 4) {
+  if (store.hasChanges && store.currentStep !== 5) {
     return '您有未保存的修复信息，确定要离开吗？'
   }
   return null
@@ -137,8 +156,14 @@ const goNext = async () => {
     await autoSaveImageEdit()
   }
   
+  // 如果是质量监督步骤（步骤3），显示确认对话框
   if (store.currentStep === 3) {
-    // 第四步是提交，调用提交方法
+    await showQualitySupervisionConfirm()
+    return
+  }
+  
+  if (store.currentStep === 4) {
+    // 第五步是提交，调用提交方法
     const success = await store.submitFlow()
     if (success) {
       await router.push(`/restoration-flow/${store.workflowId}/success`)
@@ -146,6 +171,63 @@ const goNext = async () => {
   } else if (store.nextStep()) {
     const targetRoute = `/restoration-flow/${store.workflowId}/${store.getCurrentStep.value}`
     await router.push(targetRoute)
+  }
+}
+
+// 显示质量监督确认对话框
+const showQualitySupervisionConfirm = async () => {
+  try {
+    // 获取用户信息
+    const currentUserStr = localStorage.getItem('currentUser')
+    let userName = '当前用户'
+    let userRole = '修复专家'
+    
+    if (currentUserStr) {
+      const currentUser = JSON.parse(currentUserStr)
+      userName = currentUser.name || currentUser.full_name || currentUser.display_name || '当前用户'
+      userRole = currentUser.role || currentUser.user_type || '修复专家'
+    }
+    
+    // 设置对话框消息
+    qualityDialogMessage.value = `确认由 ${userName}（${userRole}）进行质量监督检测吗？`
+    
+    // 显示对话框
+    showQualityDialog.value = true
+  } catch (error) {
+    console.error('显示质量监督确认对话框失败:', error)
+  }
+}
+
+// 确认质量监督
+const confirmQualitySupervision = async () => {
+  try {
+    // 关闭对话框
+    showQualityDialog.value = false
+    
+    // 显示成功消息
+    const { MessagePlugin } = await import('tdesign-vue-next')
+    MessagePlugin.success('质量监督检测已启动')
+    
+    // 进入下一步
+    if (store.nextStep()) {
+      await router.push(`/restoration-flow/${store.workflowId}/${store.getCurrentStep.value}`)
+    }
+  } catch (error) {
+    console.error('确认质量监督失败:', error)
+  }
+}
+
+// 取消质量监督
+const cancelQualitySupervision = async () => {
+  try {
+    // 关闭对话框
+    showQualityDialog.value = false
+    
+    // 显示取消消息
+    const { MessagePlugin } = await import('tdesign-vue-next')
+    MessagePlugin.info('已取消质量监督检测')
+  } catch (error) {
+    console.error('取消质量监督失败:', error)
   }
 }
 
@@ -188,7 +270,7 @@ const autoSaveImageEdit = async () => {
 
 // 处理退出流程
 const handleExit = () => {
-  if (store.hasChanges && store.currentStep !== 4) {
+  if (store.hasChanges && store.currentStep !== 5) {
     showExitDialog.value = true
   } else {
     confirmExit()
@@ -197,10 +279,43 @@ const handleExit = () => {
 
 // 确认退出
 const confirmExit = () => {
+  // 清除所有流程数据和本地存储
   store.clearFlow()
   showExitDialog.value = false
+  
+  // 清除所有相关的本地存储
+  clearAllFlowStorage()
+  
   router.push('/restoration')
-  MessagePlugin.info('已退出修复提交流程')
+  MessagePlugin.info('已退出修复提交流程，所有数据已清除')
+}
+
+// 清除所有流程相关的本地存储
+const clearAllFlowStorage = () => {
+  try {
+    // 清除当前工作流的存储
+    if (store.workflowId) {
+      localStorage.removeItem(`restoration_flow_${store.workflowId}`)
+      localStorage.removeItem(`workflow_submitted_${store.workflowId}`)
+    }
+    
+    // 清除所有修复流程相关的存储
+    const keysToRemove = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && (key.startsWith('restoration_flow_') || key.startsWith('workflow_submitted_'))) {
+        keysToRemove.push(key)
+      }
+    }
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key)
+    })
+    
+    console.log('已清除所有修复流程相关的本地存储')
+  } catch (error) {
+    console.error('清除本地存储失败:', error)
+  }
 }
 
 // 监听浏览器返回/刷新事件
@@ -222,8 +337,10 @@ const handleRouteLeave = (to, from, next) => {
       return
     }
     
-    if (store.hasChanges) {
+    // 离开修复流程时，清除所有数据
+    if (store.hasChanges || store.workflowId) {
       store.clearFlow()
+      clearAllFlowStorage()
     }
   }
   next()
@@ -238,10 +355,12 @@ watch(() => route.path, (newPath) => {
     store.currentStep = 1
   } else if (newPath.includes('/image-edit')) {
     store.currentStep = 2
-  } else if (newPath.includes('/confirm')) {
+  } else if (newPath.includes('/quality-supervision')) {
     store.currentStep = 3
-  } else if (newPath.includes('/success')) {
+  } else if (newPath.includes('/confirm')) {
     store.currentStep = 4
+  } else if (newPath.includes('/success')) {
+    store.currentStep = 5
   }
 }, { immediate: true })
 

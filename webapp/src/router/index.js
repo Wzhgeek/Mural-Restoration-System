@@ -8,12 +8,14 @@ import EvaluationHistory from '../views/EvaluationHistory.vue'
 import RollbackHistory from '../views/RollbackHistory.vue'
 import RollbackApproval from '../views/RollbackApproval.vue'
 import Profile from '../views/Profile.vue'
+import WorkArchive from '../views/WorkArchive.vue'
 
 // 修复提交流程组件
 import RestorationFlowLayout from '../components/RestorationFlowLayout.vue'
 import RestorationPrivacy from '../views/RestorationPrivacy.vue'
 import RestorationForm from '../views/RestorationForm.vue'
 import RestorationImageEdit from '../views/RestorationImageEdit.vue'
+import QualitySupervision from '../views/QualitySupervision.vue'
 import RestorationConfirm from '../views/RestorationConfirm.vue'
 import RestorationSuccess from '../views/RestorationSuccess.vue'
 
@@ -82,6 +84,12 @@ const routes = [
     component: Profile,
     meta: { requiresAuth: true }
   },
+  {
+    path: '/work-archive',
+    name: 'WorkArchive',
+    component: WorkArchive,
+    meta: { requiresAuth: true, title: '前期工作展示' }
+  },
   // 修复提交流程路由
   {
     path: '/restoration-flow/:workflowId',
@@ -111,16 +119,22 @@ const routes = [
         meta: { step: 2 }
       },
       {
+        path: 'quality-supervision',
+        name: 'QualitySupervision',
+        component: QualitySupervision,
+        meta: { step: 3 }
+      },
+      {
         path: 'confirm',
         name: 'RestorationConfirm',
         component: RestorationConfirm,
-        meta: { step: 3 }
+        meta: { step: 4 }
       },
       {
         path: 'success',
         name: 'RestorationSuccess',
         component: RestorationSuccess,
-        meta: { step: 4 }
+        meta: { step: 5 }
       }
     ]
   }
@@ -180,7 +194,7 @@ router.beforeEach(async (to, from, next) => {
       
       if (targetStep !== undefined) {
         // 不能跳过步骤（成功页面除外）
-        if (targetStep !== 4 && targetStep > currentStep + 1) {
+        if (targetStep !== 5 && targetStep > currentStep + 1) {
           // 重定向到当前应该访问的步骤
           const currentStepRoute = store.getCurrentStep.value
           next(`/restoration-flow/${workflowId}/${currentStepRoute}`)

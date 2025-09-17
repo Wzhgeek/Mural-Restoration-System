@@ -195,20 +195,12 @@
                   <t-icon name="close" />
                   拒绝
                 </t-link>
-                <t-link 
-                  theme="danger" 
-                  @click="handleDeleteRollback(row)" 
-                  v-if="canDelete"
-                >
-                  <t-icon name="delete" />
-                  删除
-                </t-link>
               </t-space>
             </template>
           </t-table>
 
           <!-- 批量操作按钮 -->
-          <div class="batch-actions" v-if="selectedRollbackIds.length > 0 && canDelete">
+          <div class="batch-actions" v-if="selectedRollbackIds.length > 0">
             <t-space>
               <t-button theme="success" @click="handleBatchApprove('approved')" v-if="canBatchApprove">
                 <template #icon>
@@ -221,12 +213,6 @@
                   <t-icon name="close" />
                 </template>
                 批量拒绝 ({{ selectedRollbackIds.length }})
-              </t-button>
-              <t-button theme="danger" @click="handleBatchDelete">
-                <template #icon>
-                  <t-icon name="delete" />
-                </template>
-                批量删除 ({{ selectedRollbackIds.length }})
               </t-button>
             </t-space>
           </div>
@@ -302,6 +288,93 @@
             </t-button>
           </t-space>
         </template>
+      </t-dialog>
+
+      <!-- 查看详情对话框 -->
+      <t-dialog
+        v-model:visible="detailDialogVisible"
+        header="回溯申请详情"
+        width="700px"
+        :footer="false"
+        @close="detailDialogVisible = false"
+      >
+        <div class="rollback-detail-content" v-if="currentDetailRequest">
+          <!-- 基本信息 -->
+          <div class="detail-section">
+            <h4 class="section-title">基本信息</h4>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">申请ID</span>
+                <span class="info-value">{{ currentDetailRequest.rollback_id }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">工作流ID</span>
+                <span class="info-value">{{ currentDetailRequest.workflow_id }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">申请人</span>
+                <span class="info-value">{{ currentDetailRequest.requester_name }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">状态</span>
+                <t-tag
+                  :theme="getRollbackStatusTheme(currentDetailRequest.status)"
+                  variant="light"
+                >
+                  {{ getRollbackStatusText(currentDetailRequest.status) }}
+                </t-tag>
+              </div>
+              <div class="info-item">
+                <span class="info-label">申请时间</span>
+                <span class="info-value">{{ formatDate(currentDetailRequest.created_at) }}</span>
+              </div>
+              <div class="info-item" v-if="currentDetailRequest.approved_at">
+                <span class="info-label">审批时间</span>
+                <span class="info-value">{{ formatDate(currentDetailRequest.approved_at) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 目标表单信息 -->
+          <div class="detail-section">
+            <h4 class="section-title">目标表单信息</h4>
+            <div class="info-item">
+              <span class="info-label">目标表单ID</span>
+              <span class="info-value">{{ currentDetailRequest.target_form_id }}</span>
+            </div>
+          </div>
+
+          <!-- 申请原因 -->
+          <div class="detail-section">
+            <h4 class="section-title">申请原因</h4>
+            <div class="reason-content">
+              {{ currentDetailRequest.reason }}
+            </div>
+          </div>
+
+          <!-- 支撑文件 -->
+          <div class="detail-section" v-if="currentDetailRequest.support_file_url">
+            <h4 class="section-title">支撑文件</h4>
+            <div class="file-content">
+              <t-link
+                :href="currentDetailRequest.support_file_url"
+                target="_blank"
+                theme="primary"
+              >
+                <t-icon name="attachment" />
+                查看支撑文件
+              </t-link>
+            </div>
+          </div>
+
+          <!-- 审批意见 -->
+          <div class="detail-section" v-if="currentDetailRequest.comment">
+            <h4 class="section-title">审批意见</h4>
+            <div class="comment-content">
+              {{ currentDetailRequest.comment }}
+            </div>
+          </div>
+        </div>
       </t-dialog>
     </div>
   </Layout>
@@ -660,143 +733,15 @@ const cancelBatchApproval = () => {
   batchApprovalComment.value = ''
 }
 
-// 删除操作
-const handleDeleteRollback = async (request) => {
-  if (!confirm('确定要删除这个回溯申请吗？此操作不可撤销！')) {
-    return
-  }
 
-  try {
-    await request({ url: `/admin/rollback-requests/${request.rollback_id}`, method: 'DELETE' })
-    MessagePlugin.success('删除成功')
-    refreshData()
-  } catch (error) {
-    console.error('删除失败:', error)
-    MessagePlugin.error('删除失败')
-  }
-}
-
-const handleBatchDelete = async () => {
-  if (selectedRollbackIds.value.length === 0) {
-    MessagePlugin.warning('请先选择要删除的申请')
-    return
-  }
-
-  if (!confirm(`确定要删除选中的 ${selectedRollbackIds.value.length} 条记录吗？此操作不可撤销！`)) {
-    return
-  }
-
-  try {
-    await batchDeleteRollbacks(selectedRollbackIds.value)
-    MessagePlugin.success('批量删除成功')
-    selectedRollbackIds.value = []
-    refreshData()
-  } catch (error) {
-    console.error('批量删除失败:', error)
-    MessagePlugin.error('批量删除失败')
-  }
-}
+// 查看详情相关状态
+const detailDialogVisible = ref(false)
+const currentDetailRequest = ref(null)
 
 // 查看详情
 const viewRollbackDetail = (request) => {
-  const dialog = document.createElement('div')
-  dialog.className = 't-dialog__mask'
-  dialog.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  `
-  
-  dialog.innerHTML = `
-    <div class="rollback-detail-dialog" style="
-      background: white;
-      border-radius: 8px;
-      max-width: 600px;
-      max-height: 80vh;
-      width: 90%;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    ">
-      <div class="dialog-header" style="
-        padding: 20px;
-        border-bottom: 1px solid #e7e7e7;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      ">
-        <h3 style="margin: 0; font-size: 18px; font-weight: 600;">回溯申请详情</h3>
-        <button class="close-btn" style="
-          background: none;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: #666;
-        ">&times;</button>
-      </div>
-      
-      <div class="dialog-content" style="
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-      ">
-        <div class="rollback-info" style="margin-bottom: 20px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-            <div><strong>申请ID：</strong>${request.rollback_id}</div>
-            <div><strong>工作流ID：</strong>${request.workflow_id}</div>
-            <div><strong>申请人：</strong>${request.requester_name}</div>
-            <div><strong>状态：</strong>${getRollbackStatusText(request.status)}</div>
-            <div><strong>申请时间：</strong>${formatDate(request.created_at)}</div>
-            ${request.approved_at ? `<div><strong>审批时间：</strong>${formatDate(request.approved_at)}</div>` : ''}
-          </div>
-          <div style="margin-bottom: 12px;">
-            <strong>目标表单ID：</strong>${request.target_form_id}
-          </div>
-          <div style="margin-bottom: 12px;">
-            <strong>申请原因：</strong>
-            <div style="background: #f8f9fa; padding: 12px; border-radius: 4px; margin-top: 8px; white-space: pre-wrap;">${request.reason}</div>
-          </div>
-          ${request.support_file_url ? `
-            <div>
-              <strong>支撑文件：</strong>
-              <div style="margin-top: 8px;">
-                <a href="${request.support_file_url}" target="_blank" style="color: #007bff; text-decoration: none;">
-                  📎 查看支撑文件
-                </a>
-              </div>
-            </div>
-          ` : ''}
-          ${request.comment ? `
-            <div style="margin-top: 12px;">
-              <strong>审批意见：</strong>
-              <div style="background: #f8f9fa; padding: 12px; border-radius: 4px; margin-top: 8px; white-space: pre-wrap;">${request.comment}</div>
-            </div>
-          ` : ''}
-        </div>
-      </div>
-    </div>
-  `
-  
-  document.body.appendChild(dialog)
-  
-  // 关闭按钮事件
-  dialog.querySelector('.close-btn').onclick = () => {
-    document.body.removeChild(dialog)
-  }
-  
-  // 点击背景关闭
-  dialog.onclick = (e) => {
-    if (e.target === dialog) {
-      document.body.removeChild(dialog)
-    }
-  }
+  currentDetailRequest.value = request
+  detailDialogVisible.value = true
 }
 
 // 工具方法
@@ -997,6 +942,75 @@ onMounted(() => {
       &:last-child {
         margin-bottom: 0;
       }
+    }
+  }
+}
+
+// 详情弹窗样式
+.rollback-detail-content {
+  .detail-section {
+    margin-bottom: 24px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--td-text-color-primary);
+      margin: 0 0 16px 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--td-border-level-1-color);
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      
+      @media (max-width: 600px) {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      .info-label {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--td-text-color-secondary);
+      }
+
+      .info-value {
+        font-size: 14px;
+        color: var(--td-text-color-primary);
+        word-break: break-all;
+      }
+    }
+
+    .reason-content,
+    .comment-content {
+      background: var(--td-bg-color-page);
+      padding: 16px;
+      border-radius: var(--td-radius-small);
+      border: 1px solid var(--td-border-level-1-color);
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--td-text-color-primary);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .file-content {
+      padding: 12px;
+      background: var(--td-bg-color-page);
+      border-radius: var(--td-radius-small);
+      border: 1px solid var(--td-border-level-1-color);
     }
   }
 }

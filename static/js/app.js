@@ -1764,8 +1764,18 @@ async function changePassword() {
             new_password: newPassword
         });
         
-        utils.showToast('密码修改成功', 'success');
+        utils.showToast('密码修改成功，请重新登录', 'success');
         utils.closeModal();
+        
+        // 延迟1秒后自动退出登录
+        setTimeout(() => {
+            // 清除本地存储的认证信息
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            
+            // 跳转到登录页面
+            window.location.href = '/login';
+        }, 1000);
     } catch (error) {
         utils.showToast('修改失败: ' + error.message, 'error');
     }

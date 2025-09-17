@@ -64,7 +64,8 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
 
 def get_current_user(username: str = Depends(verify_token), db: Session = Depends(get_db)):
     """获取当前用户"""
-    user = db.query(User).filter(User.username == username).first()
+    from sqlalchemy.orm import joinedload
+    user = db.query(User).options(joinedload(User.role)).filter(User.username == username).first()
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -2,7 +2,11 @@
   <div class="privacy-page">
     <div class="page-header">
       <h3>保密协议</h3>
-      <p>请仔细阅读以下保密协议内容，滚动到底部后方可继续</p>
+      
+      <div class="privacy-reminder">
+      <t-icon name="info-circle" />
+      <span>温馨提示：请仔细阅读协议内容，确保您完全理解并同意所有条款后再进行下一步操作</span>
+    </div>
     </div>
     
     <t-card class="privacy-card">
@@ -18,14 +22,10 @@
       </div>
       
       <div class="privacy-status">
-        <div class="scroll-progress">
-          <t-progress :percentage="scrollProgress" theme="primary" />
-          <span class="progress-text">阅读进度: {{ Math.round(scrollProgress) }}%</span>
-        </div>
         
         <div class="privacy-tip" v-if="!canAgree">
           <t-icon name="info-circle" />
-          <span>请滚动阅读完整协议内容后继续</span>
+          <span>请仔细阅读协议内容后继续</span>
         </div>
         
         <div class="privacy-agreement" v-if="canAgree">
@@ -35,6 +35,9 @@
         </div>
       </div>
     </t-card>
+    
+    <!-- 温馨提示 -->
+   
   </div>
 </template>
 
@@ -55,31 +58,15 @@ const store = useRestorationFlowStore()
 
 const loading = ref(true)
 const privacyContent = ref('')
-const scrollProgress = ref(0)
 const canAgree = ref(false)
 const agreed = ref(store.privacyAccepted)
 
 const privacyContentRef = ref(null)
 
-// 处理滚动事件
+// 处理滚动事件（已移除滚动限制，直接允许同意）
 const handleScroll = () => {
-  const element = privacyContentRef.value
-  if (!element) return
-  
-  const scrollTop = element.scrollTop
-  const clientHeight = element.clientHeight
-  const scrollHeight = element.scrollHeight
-  
-  // 计算滚动进度
-  const maxScroll = scrollHeight - clientHeight
-  if (maxScroll <= 0) {
-    scrollProgress.value = 100
-    canAgree.value = true
-  } else {
-    scrollProgress.value = Math.min(100, (scrollTop / maxScroll) * 100)
-    // 滚动到90%以上时允许同意
-    canAgree.value = scrollProgress.value >= 90
-  }
+  // 不再需要滚动检测，直接设置为可同意状态
+  canAgree.value = true
 }
 
 // 监听同意状态变化
@@ -171,8 +158,6 @@ onMounted(() => {
 }
 
 .privacy-content {
-  height: 400px;
-  overflow-y: auto;
   padding: 24px;
   background: #f8f9fa;
   border-radius: 6px;
@@ -200,18 +185,6 @@ onMounted(() => {
   padding: 0 24px 24px 24px;
 }
 
-.scroll-progress {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.progress-text {
-  font-size: 12px;
-  color: #6b7280;
-  white-space: nowrap;
-}
 
 .privacy-tip {
   display: flex;
@@ -237,29 +210,24 @@ onMounted(() => {
   color: #1f2937;
 }
 
-/* 自定义滚动条 */
-.privacy-content::-webkit-scrollbar {
-  width: 8px;
+.privacy-reminder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #f0f9ff;
+  border-radius: 6px;
+  border: 1px solid #bae6fd;
+  color: #0369a1;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
-.privacy-content::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.privacy-content::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-}
-
-.privacy-content::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
 
 /* 响应式设计 */
 @media (max-width: 768px) {
   .privacy-content {
-    height: 300px;
     padding: 16px;
   }
   
@@ -268,10 +236,10 @@ onMounted(() => {
     line-height: 1.6;
   }
   
-  .scroll-progress {
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
+  .privacy-reminder {
+    font-size: 12px;
+    padding: 10px 12px;
+    margin-top: 12px;
   }
 }
 </style>

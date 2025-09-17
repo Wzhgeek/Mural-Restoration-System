@@ -75,3 +75,27 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* 白灰配色的滚动条样式 */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #e5e5e5 #ffffff;
+}
+
+html::-webkit-scrollbar {
+  width: 6px;
+}
+
+html::-webkit-scrollbar-track {
+  background: #ffffff;
+  border-radius: 3px;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: #e5e5e5;
+  border-radius: 3px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: #d1d1d1;
+}

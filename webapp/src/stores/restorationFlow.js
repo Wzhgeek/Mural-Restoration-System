@@ -14,7 +14,7 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
     // 当前工作流ID
     workflowId: null,
     
-    // 当前步骤 (0: 保密协议, 1: 表单填写, 2: 图片编辑, 3: 信息确认, 4: 提交成功)
+    // 当前步骤 (0: 保密协议, 1: 表单填写, 2: 图片编辑, 3: 质量监督, 4: 信息确认, 5: 提交成功)
     currentStep: 0,
     
     // 步骤配置
@@ -22,20 +22,25 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
       { label: '保密协议', value: 'privacy' },
       { label: '表单填写', value: 'form' },
       { label: '图片编辑', value: 'image-edit' },
+      { label: '质量监督', value: 'quality-supervision' },
       { label: '信息确认', value: 'confirm' },
       { label: '提交成功', value: 'success' }
     ],
     
     // 表单数据
     formData: {
-      image_file: null, // 存储单个文件对象
+      image_file: [], // 存储多个文件对象数组
       image_desc: '',
       image_desc_file: null,
       restoration_opinion: '',
       opinion_tags: '',
       opinion_file: null,
       remark: '',
-      attachment_file: null
+      attachment_file: null,
+      quality_check: [], // 质量检测项目
+      quality_statement: '', // 质量保证声明
+      submitter_unit: '', // 提交者单位
+      operator_unit: '' // 操作人员单位
     },
     
     // 保密协议状态
@@ -68,11 +73,18 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
         case 0: // 保密协议
           return state.privacyAccepted
         case 1: // 表单填写
-          // 至少需要填写图片描述或修复意见
-          return state.formData.image_desc || state.formData.restoration_opinion
+          // 至少需要填写图片描述、视频描述或修复意见中的一项
+          return !!(state.formData.image_desc || state.formData.video_desc || state.formData.restoration_opinion)
         case 2: // 图片编辑
-          return true // 图片编辑是可选的
-        case 3: // 信息确认
+          // 必须上传图片并完成编辑才能进行下一步
+          return !!(state.formData.image_file && 
+                   Array.isArray(state.formData.image_file) && 
+                   state.formData.image_file.length > 0 &&
+                   state.imageEditData.editedImage)
+        case 3: // 质量监督
+          // 质量监督步骤暂时总是可以通过
+          return true
+        case 4: // 信息确认
           return !state.isSubmitting
         default:
           return false
@@ -84,15 +96,17 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
       switch (state.currentStep) {
         case 0: return '同意并继续'
         case 1: return '继续编辑'
-        case 2: return '确认信息'
-        case 3: return '提交修复'
+        case 2: return '质量监督'
+        case 3: return '确认信息'
+        case 4: return '提交修复'
         default: return '下一步'
       }
     },
     
     // 检查表单是否填写完整
     isFormComplete: (state) => {
-      return state.formData.image_desc || state.formData.restoration_opinion
+      // 至少需要填写图片描述、视频描述或修复意见中的一项
+      return !!(state.formData.image_desc || state.formData.video_desc || state.formData.restoration_opinion)
     }
   },
   
@@ -104,22 +118,15 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
       this.privacyAccepted = false
       this.hasChanges = false
       
-      // 检查该工作流是否最近已提交过
-      if (this.isWorkflowSubmitted(workflowId)) {
-        // 如果已提交过，清空所有数据
+      // 尝试从 localStorage 恢复数据
+      const existingData = this.loadFromStorage()
+      
+      // 如果是新流程或者数据已过期，清空所有表单数据
+      if (!existingData || this.isDataExpired()) {
         this.clearFormData()
-        console.log('工作流已提交过，清空所有表单数据')
+        console.log('新流程或数据过期，清空所有表单数据')
       } else {
-        // 尝试从 localStorage 恢复数据
-        const existingData = this.loadFromStorage()
-        
-        // 如果是新流程或者数据已过期，清空所有表单数据
-        if (!existingData || this.isDataExpired()) {
-          this.clearFormData()
-          console.log('新流程或数据过期，清空所有表单数据')
-        } else {
-          console.log('恢复已保存的流程数据')
-        }
+        console.log('恢复已保存的流程数据')
       }
       
       console.log('初始化修复提交流程，工作流ID:', workflowId)
@@ -192,8 +199,10 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
         }
         
         // 添加文件
-        if (this.formData.image_file) {
-          submitData.append('image_file', this.formData.image_file)
+        if (this.formData.image_file && Array.isArray(this.formData.image_file)) {
+          this.formData.image_file.forEach((file, index) => {
+            submitData.append(`image_file_${index}`, file)
+          })
         }
         
         if (this.formData.image_desc_file) {
@@ -223,7 +232,7 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
         // 标记工作流已提交
         this.markWorkflowSubmitted(this.workflowId)
         
-        this.currentStep = 4 // 跳转到成功页面
+        this.currentStep = 5 // 跳转到成功页面
         this.hasChanges = false
         
         MessagePlugin.success('修复表单提交成功')
@@ -251,7 +260,7 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
       
       // 清空表单数据
       this.formData = {
-        image_file: null,
+        image_file: [],
         image_desc: '',
         image_desc_file: null,
         restoration_opinion: '',
@@ -270,6 +279,46 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
       
       // 移除本地存储
       this.removeFromStorage()
+      
+      // 清除所有相关的本地存储
+      this.clearAllFlowStorage()
+      
+      console.log('已清除所有修复流程数据')
+    },
+    
+    // 清除所有流程相关的本地存储
+    clearAllFlowStorage() {
+      try {
+        // 清除所有修复流程相关的存储
+        const keysToRemove = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && (key.startsWith('restoration_flow_') || key.startsWith('workflow_submitted_'))) {
+            keysToRemove.push(key)
+          }
+        }
+        
+        keysToRemove.forEach(key => {
+          localStorage.removeItem(key)
+        })
+        
+        // 清除sessionStorage中的相关数据
+        const sessionKeysToRemove = []
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i)
+          if (key && (key.startsWith('restoration_flow_') || key.startsWith('workflow_submitted_'))) {
+            sessionKeysToRemove.push(key)
+          }
+        }
+        
+        sessionKeysToRemove.forEach(key => {
+          sessionStorage.removeItem(key)
+        })
+        
+        console.log('已清除所有修复流程相关的本地存储和会话存储')
+      } catch (error) {
+        console.error('清除存储失败:', error)
+      }
     },
     
     // 标记工作流已提交（用于后续清空数据）
@@ -358,7 +407,7 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
     // 清空表单数据（保留流程状态）
     clearFormData() {
       this.formData = {
-        image_file: null,
+        image_file: [],
         image_desc: '',
         image_desc_file: null,
         restoration_opinion: '',
@@ -389,9 +438,67 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
     sanitizeFormData(formData) {
       const sanitized = { ...formData }
       
-      // 移除文件对象，只保留文件名和大小信息
+      // 处理图片文件数组，保留URL信息
+      if (sanitized.image_file && Array.isArray(sanitized.image_file)) {
+        sanitized.image_file = sanitized.image_file.map(file => {
+          if (file && typeof file === 'object') {
+            // 确保URL能够持久化保存
+            let url = file.url
+            if (!url && file.raw) {
+              // 如果raw文件存在但没有URL，创建URL
+              url = URL.createObjectURL(file.raw)
+            }
+            
+            return {
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              lastModified: file.lastModified,
+              url: url,
+              uid: file.uid || file.id || Date.now() + Math.random(),
+              // 保留原始文件对象用于编辑页面
+              raw: file.raw || file
+            }
+          }
+          return file
+        })
+      }
+      
+      // 处理视频文件数组，保留URL和缩略图信息
+      if (sanitized.video_file && Array.isArray(sanitized.video_file)) {
+        sanitized.video_file = sanitized.video_file.map(file => {
+          if (file && typeof file === 'object') {
+            // 确保URL和缩略图能够持久化保存
+            let url = file.url
+            let thumbUrl = file.thumbUrl
+            if (!url && file.raw) {
+              url = URL.createObjectURL(file.raw)
+            }
+            if (!thumbUrl && file.url) {
+              thumbUrl = file.url
+            }
+            
+            return {
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              lastModified: file.lastModified,
+              url: url,
+              thumbUrl: thumbUrl,
+              uid: file.uid || file.id || Date.now() + Math.random(),
+              // 保留原始文件对象用于编辑页面
+              raw: file.raw || file,
+              // 保留视频缩略图生成状态
+              _posterReady: file._posterReady || false
+            }
+          }
+          return file
+        })
+      }
+      
+      // 移除其他文件对象，只保留基本信息
       Object.keys(sanitized).forEach(key => {
-        if (sanitized[key] && typeof sanitized[key] === 'object' && sanitized[key].name) {
+        if (key !== 'image_file' && key !== 'video_file' && sanitized[key] && typeof sanitized[key] === 'object' && sanitized[key].name) {
           // 如果是文件对象，只保存基本信息
           sanitized[key] = {
             name: sanitized[key].name,
@@ -418,6 +525,28 @@ export const useRestorationFlowStore = defineStore('restorationFlow', {
     // 强制清理存储空间
     forceCleanupStorage() {
       storageManager.forceCleanup()
+    },
+    
+    // 更新质量检测数据
+    updateQualityCheck(data) {
+      Object.assign(this.formData, data)
+      this.hasChanges = true
+      this.saveToStorage()
+    },
+    
+    // 获取质量检测数据
+    getQualityCheckData() {
+      return {
+        quality_check: this.formData.quality_check || [],
+        quality_statement: this.formData.quality_statement || ''
+      }
+    },
+    
+    // 检查质量检测是否完成
+    isQualityCheckComplete() {
+      const qualityCheck = this.formData.quality_check || []
+      const hasStatement = (this.formData.quality_statement || '').trim().length > 0
+      return qualityCheck.length === 4 && hasStatement
     }
   }
 })
