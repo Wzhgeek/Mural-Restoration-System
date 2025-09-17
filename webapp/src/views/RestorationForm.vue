@@ -191,73 +191,8 @@
           </t-form-item>
         </div>
 
-        <!-- 质量检测部分 -->
-        <div class="section">
-          <div class="section-bar"><span class="section-title">质量检测</span></div>
-          
-          <t-form-item label="质量自检确认" name="quality_check" required>
-            <div class="quality-check-list">
-              <t-checkbox 
-                :checked="formData.quality_check.includes('content_accuracy')"
-                value="content_accuracy"
-                @change="handleQualityCheckChange"
-              >
-                内容准确性：我已仔细核对所有填写内容，确保信息准确无误
-              </t-checkbox>
-              <t-checkbox 
-                :checked="formData.quality_check.includes('file_quality')"
-                value="file_quality"
-                @change="handleQualityCheckChange"
-              >
-                文件质量：我已确认上传的图片和视频质量清晰，符合要求
-              </t-checkbox>
-              <t-checkbox 
-                :checked="formData.quality_check.includes('description_complete')"
-                value="description_complete"
-                @change="handleQualityCheckChange"
-              >
-                描述完整：我已提供详细的图片描述和修复意见
-              </t-checkbox>
-              <t-checkbox 
-                :checked="formData.quality_check.includes('data_integrity')"
-                value="data_integrity"
-                @change="handleQualityCheckChange"
-              >
-                数据完整性：我已确认所有必要信息都已填写完整
-              </t-checkbox>
-            </div>
-          </t-form-item>
 
-          <t-form-item label="质量保证声明" name="quality_statement">
-            <t-textarea
-              v-model="formData.quality_statement"
-              placeholder="请在此声明您对提交内容质量的保证，包括检查过程和确认事项..."
-              :autosize="{ minRows: 3, maxRows: 6 }"
-              @change="handleFormChange"
-            />
-          </t-form-item>
-        </div>
-
-        <!-- 操作人员信息部分 -->
-        <div class="section">
-          <div class="section-bar"><span class="section-title">操作人员信息</span></div>
-          
-          <t-form-item label="提交人员单位" name="submitter_unit">
-            <t-input
-              v-model="formData.submitter_unit"
-              placeholder="请输入您的单位名称"
-              @change="handleFormChange"
-            />
-          </t-form-item>
-
-          <t-form-item label="操作人员单位" name="operator_unit">
-            <t-input
-              v-model="formData.operator_unit"
-              placeholder="请输入操作人员单位名称"
-              @change="handleFormChange"
-            />
-          </t-form-item>
-        </div>
+   
       </t-form>
 
       <!-- 状态 -->
