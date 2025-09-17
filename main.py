@@ -27,7 +27,7 @@ from sqlalchemy import desc, func
 from typing import List, Optional
 import os
 import shutil
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # ============================================================================
 # 本地模块导入
@@ -148,7 +148,7 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     用户登录认证接口
     
     Args:
-        user_data (UserLogin): 用户登录信息，包含用户名和密码
+        user_data (UserLogin): 用户登录信息，包含用户名、密码和选择的角色
         db (Session): 数据库会话依赖注入
         
     Returns:
@@ -165,6 +165,20 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
             detail="用户名或密码错误"
         )
     
+    # 验证用户选择的角色是否与数据库中的角色一致
+    if hasattr(user_data, 'selected_role') and user_data.selected_role:
+        if user.role.role_key != user_data.selected_role:
+            role_name_map = {
+                'admin': '管理员',
+                'restorer': '修复专家', 
+                'evaluator': '评估专家'
+            }
+            selected_role_name = role_name_map.get(user_data.selected_role, user_data.selected_role)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"你不是{selected_role_name}"
+            )
+    
     # 生成访问令牌
     access_token = create_access_token(data={"sub": user.username})
     
@@ -173,12 +187,11 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
         user_id=user.user_id,
         username=user.username,
         full_name=user.full_name,
-        role_id=user.role.role_id,
         role_name=user.role.role_name,
         role_key=user.role.role_key,
         email=user.email,
         phone=user.phone,
-        unit=user.unit,  # 添加单位字段
+        unit=user.unit,
         is_active=user.is_active,
         email_verified=user.email_verified,  # 添加邮箱验证状态
         email_verified_at=user.email_verified_at,  # 添加邮箱验证时间
@@ -210,12 +223,11 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         user_id=current_user.user_id,
         username=current_user.username,
         full_name=current_user.full_name,
-        role_id=current_user.role.role_id,
         role_name=current_user.role.role_name,
         role_key=current_user.role.role_key,
         email=current_user.email,
         phone=current_user.phone,
-        unit=current_user.unit,  # 添加单位字段
+        unit=current_user.unit,
         is_active=current_user.is_active,
         email_verified=current_user.email_verified,  # 添加邮箱验证状态
         email_verified_at=current_user.email_verified_at,  # 添加邮箱验证时间
@@ -228,6 +240,7 @@ async def update_user_profile(
     full_name: str,
     email: Optional[str] = None,
     phone: Optional[str] = None,
+    unit: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -238,6 +251,7 @@ async def update_user_profile(
         full_name (str): 用户真实姓名
         email (Optional[str]): 用户邮箱地址
         phone (Optional[str]): 用户手机号码
+        unit (Optional[str]): 用户职业
         current_user (User): 当前登录用户对象
         db (Session): 数据库会话依赖注入
         
@@ -248,6 +262,7 @@ async def update_user_profile(
     current_user.full_name = full_name
     current_user.email = email
     current_user.phone = phone
+    current_user.unit = unit
     
     # 提交数据库事务并刷新对象
     db.commit()
@@ -257,12 +272,11 @@ async def update_user_profile(
         user_id=current_user.user_id,
         username=current_user.username,
         full_name=current_user.full_name,
-        role_id=current_user.role.role_id,  # 添加role_id字段
         role_name=current_user.role.role_name,
         role_key=current_user.role.role_key,
         email=current_user.email,
         phone=current_user.phone,
-        unit=current_user.unit,  # 添加单位字段
+        unit=current_user.unit,
         is_active=current_user.is_active,
         email_verified=current_user.email_verified,  # 添加邮箱验证状态
         email_verified_at=current_user.email_verified_at,  # 添加邮箱验证时间
@@ -670,6 +684,72 @@ async def get_dashboard_stats(
     
     return DashboardStats(**dashboard_data)
 
+# ============================================================================
+# 甘特图接口
+# ============================================================================
+
+@app.get("/api/gantt/tasks")
+def get_gantt_tasks(db: Session = Depends(get_db)):
+    """
+    获取甘特图任务数据 - 从数据库读取真实工作流数据
+    
+    Returns:
+        List[dict]: 任务列表，包含任务的基本信息和时间范围
+    """
+    try:
+        # 查询所有工作流（包括运行中和已完成的工作流）
+        workflows = db.query(Workflow).filter(
+            Workflow.deleted_at.is_(None)  # 排除已删除的工作流
+        ).order_by(Workflow.created_at.desc()).all()
+        
+        tasks = []
+        for wf in workflows:
+            # 计算工作流进度
+            total_forms = db.query(Form).filter(Form.workflow_id == wf.workflow_id).count()
+            
+            # 更准确的进度计算
+            if wf.status == 'completed':
+                progress = 100
+            elif wf.status == 'cancelled':
+                progress = 0
+            else:
+                # 根据当前步骤和表单数量计算进度
+                base_progress = (wf.current_step / 5) * 80  # 基础进度（5个步骤，前4步占80%）
+                form_progress = min(20, total_forms * 5)  # 表单进度最多20%
+                progress = min(100, base_progress + form_progress)
+            
+            # 计算预计结束时间
+            if wf.status == 'completed':
+                # 已完成的工作流，使用最后更新时间作为结束时间
+                estimated_end = wf.updated_at or wf.created_at
+            else:
+                # 进行中的工作流，基于当前步骤估算剩余时间
+                remaining_steps = 5 - wf.current_step
+                estimated_end = wf.created_at + timedelta(days=wf.current_step * 2 + remaining_steps * 3)
+            
+            tasks.append({
+                "id": str(wf.workflow_id),
+                "name": wf.title,
+                "start": wf.created_at.isoformat(),
+                "end": estimated_end.isoformat(),
+                "progress": round(progress, 1),
+                "assignee": wf.initiator.full_name if wf.initiator else "未知用户",
+                "status": wf.status,
+                "workflow_id": str(wf.workflow_id),
+                "current_step": wf.current_step,
+                "total_forms": total_forms
+            })
+        
+        # 如果没有工作流数据，返回空列表而不是示例数据
+        return tasks
+        
+    except Exception as e:
+        print(f"获取甘特图数据失败: {e}")
+        import traceback
+        traceback.print_exc()
+        # 出错时返回空列表
+        return []
+
 
 # ============================================================================
 # 文件管理接口
@@ -757,6 +837,18 @@ async def create_workflow(
     Returns:
         WorkflowResponse: 创建成功的工作流响应
     """
+    # 检查标题是否已存在
+    existing_workflow = db.query(Workflow).filter(
+        Workflow.title == workflow_data.title,
+        Workflow.deleted_at.is_(None)  # 排除已删除的工作流
+    ).first()
+    
+    if existing_workflow:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="工作流标题已存在，请使用其他标题"
+        )
+    
     # 创建新的工作流实例
     workflow = Workflow(
         title=workflow_data.title,

@@ -16,12 +16,6 @@
           </template>
           刷新
         </t-button>
-        <t-button theme="default" variant="outline" v-if="canDelete" @click="handleBatchDelete">
-          <template #icon>
-            <t-icon name="delete" />
-          </template>
-          批量删除
-        </t-button>
       </div>
 
       <div class="right-operations">
@@ -122,10 +116,6 @@
               <t-icon name="view" />
               详情
             </t-link>
-            <t-link theme="danger" v-if="canDelete" @click="handleDelete(slotProps.row)">
-              <t-icon name="delete" />
-              删除
-            </t-link>
           </t-space>
         </template>
       </t-table>
@@ -136,6 +126,7 @@
       v-model:visible="detailVisible"
       header="评估详情"
       width="800px"
+      :footer="false"
       :close-on-overlay-click="true"
     >
       <div v-if="currentDetail" class="detail-content">
@@ -400,41 +391,6 @@ const viewDetail = async (row) => {
   }
 }
 
-const handleDelete = async (row) => {
-  if (!confirm('确定要删除这条评估记录吗？此操作不可撤销！')) {
-    return
-  }
-
-  try {
-    await deleteEvaluation(row.evaluate_id)
-    MessagePlugin.success('删除成功')
-    refreshData()
-  } catch (error) {
-    console.error('删除评估记录失败:', error)
-    MessagePlugin.error('删除失败')
-  }
-}
-
-const handleBatchDelete = async () => {
-  if (selectedRowKeys.value.length === 0) {
-    MessagePlugin.warning('请先选择要删除的记录')
-    return
-  }
-
-  if (!confirm(`确定要删除选中的 ${selectedRowKeys.value.length} 条记录吗？此操作不可撤销！`)) {
-    return
-  }
-
-  try {
-    await batchDeleteEvaluations(selectedRowKeys.value)
-    MessagePlugin.success('批量删除成功')
-    selectedRowKeys.value = []
-    refreshData()
-  } catch (error) {
-    console.error('批量删除失败:', error)
-    MessagePlugin.error('批量删除失败')
-  }
-}
 
 // 工具方法
 const getScoreTheme = (score) => {

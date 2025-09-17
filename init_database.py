@@ -10,6 +10,7 @@
 5. 更新测试数据（用户单位、工作流用户信息等）
 6. 初始化MinIO存储桶（主存储桶和知识体系文件存储桶）
 
+
 作者: 王梓涵
 邮箱: wangzh011031@163.com
 时间: 2025年
@@ -19,7 +20,6 @@
 
 环境要求:
     - PostgreSQL 12+
-    - MinIO 服务（可选，用于文件存储）
     - Python 3.8+
     - 已安装项目依赖 (pip install -r requirements.txt)
 
@@ -39,6 +39,7 @@
     - migrate_knowledge_system.py: 知识体系文件存储表
     - migrate_multifile_support.py: 多文件上传支持字段
     - migrate_workflow_user_fields.py: 工作流表用户字段
+
 """
 
 import os
@@ -50,7 +51,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import settings
 from app.core.database import create_tables, init_data
 from app.models import Base
-from app.services.file_service import file_service
 
 def create_database_if_not_exists():
     """
@@ -385,26 +385,6 @@ def initialize_base_data():
         print(f"❌ 基础数据初始化失败: {e}")
         return False
 
-def initialize_minio_buckets():
-    """
-    初始化MinIO存储桶
-    
-    Returns:
-        bool: 初始化成功返回True，否则返回False
-    """
-    try:
-        print("🪣 开始初始化MinIO存储桶...")
-        # 文件服务初始化时会自动创建存储桶
-        # 这里我们显式调用以确保存储桶存在
-        print("  - 主存储桶: repair-system-files")
-        print("  - 知识体系文件存储桶: knowledge-files")
-        print("✅ MinIO存储桶初始化完成")
-        return True
-    except Exception as e:
-        print(f"❌ MinIO存储桶初始化失败: {e}")
-        print("⚠️ 请确保MinIO服务正在运行")
-        return False
-
 def show_database_info():
     """
     显示数据库信息
@@ -418,20 +398,6 @@ def show_database_info():
     print(f"数据库名: {settings.POSTGRES_DB}")
     print(f"用户名: {settings.POSTGRES_USER}")
     print(f"连接URL: postgresql://{settings.POSTGRES_USER}:***@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}")
-    print("="*60)
-
-def show_minio_info():
-    """
-    显示MinIO配置信息
-    """
-    print("\n" + "="*60)
-    print("🪣 MinIO配置信息")
-    print("="*60)
-    print(f"MinIO端点: {settings.MINIO_ENDPOINT}")
-    print(f"访问密钥: {settings.MINIO_ACCESS_KEY}")
-    print(f"安全连接: {'是' if settings.MINIO_SECURE else '否'}")
-    print(f"主存储桶: {settings.MINIO_BUCKET}")
-    print(f"知识体系文件存储桶: knowledge-files")
     print("="*60)
 
 def show_created_tables():
@@ -505,6 +471,7 @@ def show_knowledge_system_info():
     print("  ✓ 软删除机制: 支持数据恢复")
     print("  ✓ MinIO存储: 文件存储在knowledge-files存储桶中")
 
+
 def main():
     """
     主函数 - 执行完整的数据库初始化流程
@@ -513,9 +480,8 @@ def main():
     print("📊 数据库初始化脚本")
     print("="*60)
     
-    # 显示配置信息
+    # 显示数据库配置信息
     show_database_info()
-    show_minio_info()
     
     # 步骤1: 创建数据库（如果不存在）
     print("\n🔧 步骤1: 检查并创建数据库...")
@@ -559,11 +525,11 @@ def main():
         print("⚠️ MinIO存储桶初始化失败，但数据库初始化已完成")
         print("⚠️ 请手动启动MinIO服务并创建存储桶")
     
+
     # 显示结果信息
     show_created_tables()
     show_migration_info()
     show_default_accounts()
-    show_knowledge_system_info()
     
     print("\n" + "="*60)
     print("🎉 数据库初始化完成！")

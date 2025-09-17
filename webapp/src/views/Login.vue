@@ -24,6 +24,25 @@
           label-width="0"
           @submit="onSubmit"
         >
+          <!-- 角色选择 -->
+          <t-form-item name="selectedRole">
+            <div class="role-selection">
+              <div class="role-selection-label">选择角色</div>
+              <div class="role-tabs">
+                <div 
+                  v-for="role in roleOptions" 
+                  :key="role.value"
+                  class="role-tab"
+                  :class="{ active: formData.selectedRole === role.value }"
+                  @click="formData.selectedRole = role.value"
+                >
+                  <t-icon :name="role.icon" class="role-icon" />
+                  <span class="role-label">{{ role.label }}</span>
+                </div>
+              </div>
+            </div>
+          </t-form-item>
+
           <t-form-item name="username">
             <t-input 
               v-model="formData.username" 
@@ -99,8 +118,16 @@ const loading = ref(false)
 const formData = reactive({
   username: '',
   password: '',
-  rememberMe: false
+  rememberMe: false,
+  selectedRole: 'admin'  // 默认选择管理员角色
 })
+
+// 角色选项
+const roleOptions = [
+  { value: 'admin', label: '管理员', icon: 'user-setting' },
+  { value: 'restorer', label: '修复专家', icon: 'tools' },
+  { value: 'evaluator', label: '评估专家', icon: 'star' }
+]
 
 // 表单验证规则
 const formRules = {
@@ -126,7 +153,8 @@ const onSubmit = async (context) => {
         },
         body: JSON.stringify({
           username: formData.username,
-          password: formData.password
+          password: formData.password,
+          selected_role: formData.selectedRole
         })
       })
       
@@ -367,6 +395,77 @@ const handleForgotPassword = () => {
   font-size: 15px;
 }
 
+/* 角色选择样式 */
+.role-selection {
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.role-selection-label {
+  font-size: 14px;
+  color: #383d36;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.role-tabs {
+  display: flex;
+  gap: 8px;
+  background: rgba(253, 248, 248, 0.8);
+  border-radius: 8px;
+  padding: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.role-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: transparent;
+  border: 2px solid transparent;
+}
+
+.role-tab:hover {
+  background: rgba(255, 255, 255, 0.8);
+  transform: translateY(-1px);
+}
+
+.role-tab.active {
+  background: rgba(75, 130, 202, 0.1);
+  border-color: #4b82ca;
+  box-shadow: 0 2px 8px rgba(75, 130, 202, 0.2);
+}
+
+.role-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+  color: #666;
+  transition: color 0.3s ease;
+}
+
+.role-tab.active .role-icon {
+  color: #4b82ca;
+}
+
+.role-label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.role-tab.active .role-label {
+  color: #4b82ca;
+  font-weight: 600;
+}
+
 /* 选项容器 */
 .options-container {
   display: flex;
@@ -423,6 +522,26 @@ const handleForgotPassword = () => {
   
   .title-sub {
     font-size: 16px;
+  }
+  
+  .role-tabs {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .role-tab {
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 10px 12px;
+  }
+  
+  .role-icon {
+    margin-right: 8px;
+    margin-bottom: 0;
+  }
+  
+  .role-label {
+    font-size: 13px;
   }
 }
 

@@ -13,7 +13,7 @@ import request from './request.js'
  */
 export const getUserProfile = () => {
   return request({
-    url: '/api/user/me',
+    url: '/user/me',
     method: 'GET'
   })
 }
@@ -28,7 +28,7 @@ export const getUserProfile = () => {
  */
 export const updateUserProfile = (userData) => {
   return request({
-    url: '/api/user/profile',
+    url: '/user/profile',
     method: 'PUT',
     params: userData  // 使用params而不是data，因为后端期望查询参数
   })
@@ -43,7 +43,7 @@ export const updateUserProfile = (userData) => {
  */
 export const changePassword = (passwordData) => {
   return request({
-    url: '/api/user/password',
+    url: '/user/password',
     method: 'PUT',
     params: {
       current_password: passwordData.current_password,
@@ -58,7 +58,7 @@ export const changePassword = (passwordData) => {
  */
 export const getAccountStats = () => {
   return request({
-    url: '/api/dashboard',
+    url: '/dashboard',
     method: 'GET'
   })
 }
@@ -70,7 +70,7 @@ export const getAccountStats = () => {
  */
 export const uploadAvatar = (formData) => {
   return request({
-    url: '/api/user/avatar',
+    url: '/user/avatar',
     method: 'POST',
     data: formData,
     headers: {
@@ -85,7 +85,7 @@ export const uploadAvatar = (formData) => {
  */
 export const getUserPreferences = () => {
   return request({
-    url: '/api/user/preferences',
+    url: '/user/preferences',
     method: 'GET'
   })
 }
@@ -97,7 +97,7 @@ export const getUserPreferences = () => {
  */
 export const updateUserPreferences = (preferences) => {
   return request({
-    url: '/api/user/preferences',
+    url: '/user/preferences',
     method: 'PUT',
     data: preferences
   })
@@ -114,7 +114,7 @@ export const updateUserPreferences = (preferences) => {
  */
 export const getUserActivityLog = (params = {}) => {
   return request({
-    url: '/api/user/activity-log',
+    url: '/user/activity-log',
     method: 'GET',
     params: {
       page: params.page || 1,

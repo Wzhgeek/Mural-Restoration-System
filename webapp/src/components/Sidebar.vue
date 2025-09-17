@@ -8,28 +8,30 @@
     <t-menu 
       theme="light" 
       :value="activeMenu" 
+      :expanded="expandedMenus"
       @change="handleMenuChange"
+      @expand="handleMenuExpand"
       class="sidebar-menu"
     >
       <t-menu-item value="/dashboard">
         <template #icon>
           <t-icon name="dashboard" />
         </template>
-        仪表板
+        概览
       </t-menu-item>
       
       <t-menu-item value="/restoration" v-if="canAccessRestoration">
         <template #icon>
           <t-icon name="edit" />
         </template>
-        修复提交
+        任务提交
       </t-menu-item>
       
       <t-menu-item value="/management" v-if="canAccessManagement">
         <template #icon>
           <t-icon name="star" />
         </template>
-        修复管理
+        任务管理
       </t-menu-item>
       
       <t-menu-item value="/evaluation" v-if="canAccessEvaluation">
@@ -39,32 +41,45 @@
         评估修复
       </t-menu-item>
 
-      <t-menu-item value="/rollback-approval" v-if="canAccessRollbackApproval">
-        <template #icon>
-          <t-icon name="check-circle" />
-        </template>
-        回溯审批
-      </t-menu-item>
 
-      <t-menu-item value="/rollback-history" v-if="canAccessRollbackHistory">
-        <template #icon>
-          <t-icon name="time" />
+      <!-- 质量管理分组 -->
+      <t-submenu value="quality-management" v-if="canAccessQualityManagement">
+        <template #title>
+          <t-icon name="chart" />
+          质量管理
         </template>
-        回溯历史
-      </t-menu-item>
-
-      <t-menu-item value="/evaluation-history" v-if="canAccessEvaluationHistory">
-        <template #icon>
-          <t-icon name="history" />
-        </template>
-        评估历史
-      </t-menu-item>
+        <t-menu-item value="/rollback-approval" v-if="canAccessRollbackApproval">
+          <template #icon>
+            <t-icon name="check-circle" />
+          </template>
+          回溯审批
+        </t-menu-item>
+        <t-menu-item value="/rollback-history" v-if="canAccessRollbackHistory">
+          <template #icon>
+            <t-icon name="time" />
+          </template>
+          回溯历史
+        </t-menu-item>
+        <t-menu-item value="/evaluation-history" v-if="canAccessEvaluationHistory">
+          <template #icon>
+            <t-icon name="history" />
+          </template>
+          评估历史
+        </t-menu-item>
+      </t-submenu>
       
+      <t-menu-item value="/work-archive">
+        <template #icon>
+          <t-icon name="folder" />
+        </template>
+        前期工作展示
+      </t-menu-item>
+
       <t-menu-item value="/profile">
         <template #icon>
           <t-icon name="user" />
         </template>
-        个人中心
+        安全中心
       </t-menu-item>
        
       <t-menu-item value="logout" class="logout-item">
@@ -94,6 +109,10 @@ const route = useRoute()
 // 响应式数据
 const currentUser = ref(null)
 const activeMenu = ref('/dashboard')
+const expandedMenus = ref([])
+
+// 本地存储键名
+const EXPANDED_KEY = 'sidebarExpanded'
 
 // 计算属性 - 权限控制
 const canAccessRestoration = computed(() => {
@@ -120,6 +139,10 @@ const canAccessEvaluationHistory = computed(() => {
   return currentUser.value?.role_key === 'admin' || currentUser.value?.role_key === 'evaluator'
 })
 
+const canAccessQualityManagement = computed(() => {
+  return canAccessRollbackApproval.value || canAccessRollbackHistory.value || canAccessEvaluationHistory.value
+})
+
 // 方法
 const handleLogout = () => {
   // 清除本地存储的认证信息
@@ -144,11 +167,15 @@ const handleMenuChange = (value) => {
   router.push(value)
 }
 
+const handleMenuExpand = (value) => {
+  expandedMenus.value = value
+  localStorage.setItem(EXPANDED_KEY, JSON.stringify(value))
+}
+
 // 根据当前路由设置活动菜单
 const setActiveMenuFromRoute = () => {
-  const path = route.path
-  // 直接使用路由路径作为菜单值
-  activeMenu.value = path
+  activeMenu.value = route.path
+  // ❌ 不要在这里根据路由去改 expandedMenus
 }
 
 // 监听路由变化，自动更新活动菜单状态
@@ -156,19 +183,27 @@ watch(
   () => route.path,
   (newPath) => {
     activeMenu.value = newPath
+    // ❌ 不要在这里自动展开/收起任何子菜单
   },
   { immediate: true }
 )
 
 // 组件挂载时初始化
 onMounted(() => {
-  // 获取当前用户信息
+  // 恢复上次手动展开情况
+  const saved = localStorage.getItem(EXPANDED_KEY)
+  if (saved) {
+    try { 
+      expandedMenus.value = JSON.parse(saved) || [] 
+    } catch {}
+  }
+
+  // 初始化当前用户 & 高亮（不展开）
   const user = localStorage.getItem('currentUser')
   if (user) {
     currentUser.value = JSON.parse(user)
   }
   
-  // 根据当前路由设置活动菜单
   setActiveMenuFromRoute()
 })
 </script>
@@ -238,6 +273,46 @@ onMounted(() => {
  .sidebar-menu :deep(.t-menu-item .t-icon) {
    margin-right: 8px;
    font-size: 16px;
+ }
+
+ .sidebar-menu :deep(.t-submenu) {
+   margin: 4px 0;
+   border-radius: 6px;
+ }
+
+ .sidebar-menu :deep(.t-submenu .t-submenu__title) {
+   border-radius: 6px;
+   transition: all 0.2s ease;
+   color: #1f2937;
+   margin: 0 12px;
+ }
+
+ .sidebar-menu :deep(.t-submenu .t-submenu__title:hover) {
+   background: #f5f5f5;
+   color: #1f2937;
+ }
+
+ .sidebar-menu :deep(.t-submenu .t-submenu__title .t-icon) {
+   margin-right: 8px;
+   font-size: 16px;
+   color: #6b7280;
+ }
+
+ .sidebar-menu :deep(.t-submenu .t-menu-item) {
+   margin: 2px 0;
+   padding-left: 32px;
+   border-radius: 4px;
+   color: #1f2937;
+ }
+
+ .sidebar-menu :deep(.t-submenu .t-menu-item:hover) {
+   background: #f5f5f5;
+   color: #1f2937;
+ }
+
+ .sidebar-menu :deep(.t-submenu .t-menu-item.t-is-active) {
+   background: #e5e7eb;
+   color: #1f2937;
  }
 
  .logout-item {

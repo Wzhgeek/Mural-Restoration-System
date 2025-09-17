@@ -9,3 +9,7 @@ API路由模块
 """
 
 from .routes import router
+from .work_archive import router as work_archive_router
+
+# 注册工作档案路由
+router.include_router(work_archive_router, prefix="/work-archive", tags=["work-archive"])

@@ -2,7 +2,7 @@
   <div class="confirm-page">
     <div class="page-header">
       <h3>确认提交信息</h3>
-      <p>请仔细核对所有信息，确认无误后提交修复表单</p>
+      <p>请仔细核对所有信息，确认无误后提交任务表单</p>
     </div>
     
     <div class="confirm-container">
@@ -59,14 +59,14 @@
           
           <!-- 修复方案信息 -->
           <div class="section" v-if="store.formData.restoration_opinion || formattedTags.length > 0 || store.formData.opinion_file">
-            <h5 class="section-title">修复方案信息</h5>
+            <h5 class="section-title">任务方案信息</h5>
             <div class="content-item" v-if="store.formData.restoration_opinion">
-              <span class="label">修复意见</span>
+              <span class="label">任务意见</span>
               <div class="content-text">{{ store.formData.restoration_opinion }}</div>
             </div>
             
             <div class="content-item" v-if="formattedTags.length > 0">
-              <span class="label">修复标签</span>
+              <span class="label">任务标签</span>
               <div class="tags-list">
                 <t-tag 
                   v-for="tag in formattedTags" 
@@ -81,7 +81,7 @@
             </div>
             
             <div class="content-item" v-if="store.formData.opinion_file">
-              <span class="label">修复意见附件</span>
+              <span class="label">任务意见附件</span>
               <div class="file-item">
                 <t-icon name="attach" size="14px" />
                 <span>{{ getFileName(store.formData.opinion_file) }}</span>
@@ -128,21 +128,7 @@
       <div class="submit-section">
         <div class="submit-warning">
           <t-icon name="info-circle" />
-          <span>请确认以上信息无误。提交后将无法修改，系统将开始处理您的修复申请。</span>
-        </div>
-        
-        <div class="submit-actions">
-          <t-button @click="goBack" :disabled="store.isSubmitting">
-            返回修改
-          </t-button>
-          <t-button 
-            theme="primary" 
-            @click="handleSubmit" 
-            :loading="store.isSubmitting"
-            size="large"
-          >
-            确认提交修复申请
-          </t-button>
+          <span>请确认以上信息无误。提交后将无法修改，系统将开始处理您的任务申请。</span>
         </div>
       </div>
     </div>
@@ -218,32 +204,6 @@ const getFileName = (file) => {
   return '未知文件'
 }
 
-// 返回修改
-const goBack = () => {
-  if (store.prevStep()) {
-    router.push(`/restoration-flow/${store.workflowId}/image-edit`)
-  }
-}
-
-// 处理提交
-const handleSubmit = async () => {
-  try {
-    // 最后确认
-    const confirmed = confirm('确认提交修复申请吗？提交后将无法修改。')
-    if (!confirmed) return
-    
-    // 提交表单
-    const success = await store.submitFlow()
-    
-    if (success) {
-      // 跳转到成功页面
-      router.push(`/restoration-flow/${store.workflowId}/success`)
-    }
-  } catch (error) {
-    console.error('提交失败:', error)
-    MessagePlugin.error('提交失败，请重试')
-  }
-}
 
 // 更新当前时间
 const updateCurrentTime = () => {
@@ -268,8 +228,8 @@ onMounted(() => {
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
-  height: calc(100vh - 200px);
-  overflow-y: auto;
+  min-height: calc(100vh - 200px);
+  background: #fff;
 }
 
 .page-header {
@@ -295,6 +255,7 @@ onMounted(() => {
   flex-direction: column;
   gap: 16px;
   min-height: 0;
+  width: 100%;
 }
 
 /* 信息卡片样式 */
@@ -492,12 +453,7 @@ onMounted(() => {
   font-size: 14px;
 }
 
-.submit-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
+
 
 /* 响应式设计 */
 @media (max-width: 768px) {
@@ -520,13 +476,6 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
   
-  .submit-actions {
-    flex-direction: column;
-  }
-  
-  .submit-actions > * {
-    width: 100%;
-  }
   
   .edited-preview {
     max-width: 100%;

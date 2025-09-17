@@ -5,47 +5,7 @@
  * @date 2025
  */
 
-// API基础URL
-const API_BASE_URL = '/api'
-
-// 获取认证token
-const getAuthToken = () => {
-  return localStorage.getItem('authToken')
-}
-
-// 通用请求方法
-const request = async (url, options = {}) => {
-  const token = getAuthToken()
-  
-  const defaultOptions = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` })
-    }
-  }
-  
-  const response = await fetch(`${API_BASE_URL}${url}`, {
-    ...defaultOptions,
-    ...options,
-    headers: {
-      ...defaultOptions.headers,
-      ...options.headers
-    }
-  })
-  
-  if (!response.ok) {
-    if (response.status === 401) {
-      // 清除本地存储并跳转到登录页
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('currentUser')
-      window.location.href = '/login'
-      throw new Error('登录已过期，请重新登录')
-    }
-    throw new Error(`请求失败: ${response.status}`)
-  }
-  
-  return response.json()
-}
+import request from './request.js'
 
 /**
  * 获取仪表盘数据
@@ -114,27 +74,11 @@ export const createWorkflow = async (data) => {
  * @returns {Promise<Object>} 提交结果
  */
 export const submitForm = async (formData) => {
-  const token = getAuthToken()
-  
-  const response = await fetch(`${API_BASE_URL}/forms`, {
+  return request({
+    url: '/forms',
     method: 'POST',
-    headers: {
-      ...(token && { 'Authorization': `Bearer ${token}` })
-    },
-    body: formData
+    data: formData
   })
-  
-  if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('currentUser')
-      window.location.href = '/login'
-      throw new Error('登录已过期，请重新登录')
-    }
-    throw new Error(`请求失败: ${response.status}`)
-  }
-  
-  return response.json()
 }
 
 /**
@@ -143,27 +87,11 @@ export const submitForm = async (formData) => {
  * @returns {Promise<Object>} 提交结果
  */
 export const submitEvaluation = async (formData) => {
-  const token = getAuthToken()
-  
-  const response = await fetch(`${API_BASE_URL}/evaluations`, {
+  return request({
+    url: '/evaluations',
     method: 'POST',
-    headers: {
-      ...(token && { 'Authorization': `Bearer ${token}` })
-    },
-    body: formData
+    data: formData
   })
-  
-  if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('currentUser')
-      window.location.href = '/login'
-      throw new Error('登录已过期，请重新登录')
-    }
-    throw new Error(`请求失败: ${response.status}`)
-  }
-  
-  return response.json()
 }
 
 /**
@@ -172,27 +100,11 @@ export const submitEvaluation = async (formData) => {
  * @returns {Promise<Object>} 提交结果
  */
 export const submitRollbackRequest = async (formData) => {
-  const token = getAuthToken()
-  
-  const response = await fetch(`${API_BASE_URL}/rollback-requests`, {
+  return request({
+    url: '/rollback-requests',
     method: 'POST',
-    headers: {
-      ...(token && { 'Authorization': `Bearer ${token}` })
-    },
-    body: formData
+    data: formData
   })
-  
-  if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('currentUser')
-      window.location.href = '/login'
-      throw new Error('登录已过期，请重新登录')
-    }
-    throw new Error(`请求失败: ${response.status}`)
-  }
-  
-  return response.json()
 }
 
 /**
@@ -202,30 +114,11 @@ export const submitRollbackRequest = async (formData) => {
  * @returns {Promise<Object>} 审批结果
  */
 export const approveRollbackRequest = async (rollbackId, approve) => {
-  const formData = new FormData()
-  formData.append('approve', approve)
-  
-  const token = getAuthToken()
-  
-  const response = await fetch(`${API_BASE_URL}/rollback-requests/${rollbackId}/approve`, {
+  return request({
+    url: `/rollback-requests/${rollbackId}/approve`,
     method: 'POST',
-    headers: {
-      ...(token && { 'Authorization': `Bearer ${token}` })
-    },
-    body: formData
+    data: { approve }
   })
-  
-  if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('currentUser')
-      window.location.href = '/login'
-      throw new Error('登录已过期，请重新登录')
-    }
-    throw new Error(`请求失败: ${response.status}`)
-  }
-  
-  return response.json()
 }
 
 /**
@@ -235,30 +128,11 @@ export const approveRollbackRequest = async (rollbackId, approve) => {
  * @returns {Promise<Object>} 操作结果
  */
 export const finalizeWorkflow = async (workflowId, formId) => {
-  const formData = new FormData()
-  formData.append('final_form_id', formId)
-  
-  const token = getAuthToken()
-  
-  const response = await fetch(`${API_BASE_URL}/workflows/${workflowId}/finalize`, {
+  return request({
+    url: `/workflows/${workflowId}/finalize`,
     method: 'POST',
-    headers: {
-      ...(token && { 'Authorization': `Bearer ${token}` })
-    },
-    body: formData
+    data: { final_form_id: formId }
   })
-  
-  if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('currentUser')
-      window.location.href = '/login'
-      throw new Error('登录已过期，请重新登录')
-    }
-    throw new Error(`请求失败: ${response.status}`)
-  }
-  
-  return response.json()
 }
 
 /**

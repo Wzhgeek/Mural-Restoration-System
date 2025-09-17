@@ -16,17 +16,6 @@
           </template>
           刷新
         </t-button>
-        <t-button 
-          theme="default" 
-          variant="outline" 
-          v-if="currentUser?.role_key === 'admin'" 
-          @click="handleBatchDelete"
-        >
-          <template #icon>
-            <t-icon name="delete" />
-          </template>
-          批量删除
-        </t-button>
       </div>
 
       <div class="right-operations">
@@ -147,14 +136,6 @@
               <t-icon name="close" />
               拒绝
             </t-link>
-            <t-link 
-              theme="danger" 
-              v-if="canDeleteRecord(slotProps.row)" 
-              @click="handleDelete(slotProps.row)"
-            >
-              <t-icon name="delete" />
-              删除
-            </t-link>
           </t-space>
         </template>
       </t-table>
@@ -165,6 +146,7 @@
       v-model:visible="detailVisible"
       header="回溯详情"
       width="800px"
+      :footer="false"
       :close-on-overlay-click="true"
     >
       <div v-if="currentDetail" class="detail-content">
@@ -491,64 +473,6 @@ const viewDetail = async (row) => {
   }
 }
 
-const handleDelete = async (row) => {
-  // 根据用户角色显示不同的确认信息
-  const isAdmin = currentUser.value?.role_key === 'admin'
-  const confirmMessage = isAdmin 
-    ? '确定要强制删除这条回溯记录吗？此操作不可撤销！'
-    : '确定要删除这条回溯记录吗？只能删除待审批状态的申请！'
-
-  if (!confirm(confirmMessage)) {
-    return
-  }
-
-  try {
-    // 根据用户角色使用不同的删除接口
-    if (isAdmin) {
-      await adminDeleteRollback(row.rollback_id)
-    } else {
-      await deleteRollback(row.rollback_id)
-    }
-    
-    MessagePlugin.success('删除成功')
-    refreshData()
-  } catch (error) {
-    console.error('删除回溯记录失败:', error)
-    MessagePlugin.error('删除失败: ' + (error.message || '未知错误'))
-  }
-}
-
-const handleBatchDelete = async () => {
-  if (selectedRowKeys.value.length === 0) {
-    MessagePlugin.warning('请先选择要删除的记录')
-    return
-  }
-
-  // 检查批量删除数量限制
-  if (selectedRowKeys.value.length > 100) {
-    MessagePlugin.error('批量删除数量不能超过100条')
-    return
-  }
-
-  const isAdmin = currentUser.value?.role_key === 'admin'
-  const confirmMessage = isAdmin
-    ? `确定要强制删除选中的 ${selectedRowKeys.value.length} 条记录吗？此操作不可撤销！`
-    : `确定要删除选中的 ${selectedRowKeys.value.length} 条记录吗？只能删除待审批状态的申请！`
-
-  if (!confirm(confirmMessage)) {
-    return
-  }
-
-  try {
-    await batchDeleteRollbacks(selectedRowKeys.value)
-    MessagePlugin.success(`成功删除 ${selectedRowKeys.value.length} 条记录`)
-    selectedRowKeys.value = []
-    refreshData()
-  } catch (error) {
-    console.error('批量删除失败:', error)
-    MessagePlugin.error('批量删除失败: ' + (error.message || '未知错误'))
-  }
-}
 
 const handleApprove = (row, action) => {
   approvalTarget.value = row

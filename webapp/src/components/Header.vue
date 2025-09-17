@@ -5,6 +5,15 @@
         <h2 class="page-title">{{ pageTitle }}</h2>
       </div>
       <div class="header-right">
+        <!-- 工作提示部分 -->
+        <div class="work-reminder" v-if="workReminders.length > 0">
+          <t-tooltip :content="`还有 ${totalReminderCount} 个任务待处理`" placement="bottom">
+            <t-button theme="default" variant="text" class="reminder-btn" @click="goToWorkPage">
+              <t-icon name="notification" />
+            </t-button>
+          </t-tooltip>
+        </div>
+        
         <div class="user-info">
           <t-avatar size="small" class="user-avatar">
             {{ currentUser?.full_name?.charAt(0) || 'U' }}
@@ -46,16 +55,22 @@ const route = useRoute()
 
 // 响应式数据
 const currentUser = ref(null)
+const workReminders = ref([])
+
+// 计算总任务数量
+const totalReminderCount = computed(() => {
+  return workReminders.value.reduce((total, reminder) => total + reminder.count, 0)
+})
 
 // 页面标题映射
 const pageTitles = {
-  'dashboard': '仪表板',
-  'restoration': '修复提交',
-  'management': '修复管理',
+  'dashboard': '概况',
+  'restoration': '任务提交',
+  'management': '任务管理',
   'evaluation': '评估修复',
   'rollback-history': '回溯历史',
   'evaluation-history': '评估历史',
-  'profile': '个人中心'
+  'profile': '安全中心'
 }
 
 // 响应式页面标题
@@ -91,6 +106,88 @@ const getPageTitle = () => {
   return '仪表板'
 }
 
+// 工作提示相关方法
+const loadWorkReminders = async () => {
+  if (!currentUser.value) return
+  
+  try {
+    // 根据用户角色获取不同的工作提示
+    const role = currentUser.value.role_key
+    const reminders = []
+    
+    // 这里应该调用API获取实际数据，现在先用模拟数据
+    if (role === 'admin') {
+      reminders.push(
+        {
+          type: 'urgent',
+          icon: 'error-circle',
+          title: '待审批回溯',
+          description: '有修复专家申请回溯',
+          count: 3
+        },
+        {
+          type: 'warning',
+          icon: 'time',
+          title: '进行中工作流',
+          description: '需要关注进度',
+          count: 5
+        }
+      )
+    } else if (role === 'restorer') {
+      reminders.push(
+        {
+          type: 'info',
+          icon: 'edit',
+          title: '待提交修复',
+          description: '需要提交修复方案',
+          count: 2
+        },
+        {
+          type: 'warning',
+          icon: 'time',
+          title: '进行中任务',
+          description: '需要继续处理',
+          count: 4
+        }
+      )
+    } else if (role === 'evaluator') {
+      reminders.push(
+        {
+          type: 'urgent',
+          icon: 'star',
+          title: '待评估修复',
+          description: '需要评估修复质量',
+          count: 6
+        },
+        {
+          type: 'info',
+          icon: 'check-circle',
+          title: '已完成评估',
+          description: '等待确认',
+          count: 2
+        }
+      )
+    }
+    
+    workReminders.value = reminders
+  } catch (error) {
+    console.error('加载工作提示失败:', error)
+  }
+}
+
+const goToWorkPage = () => {
+  if (!currentUser.value) return
+  
+  const role = currentUser.value.role_key
+  if (role === 'admin') {
+    router.push('/management')
+  } else if (role === 'restorer') {
+    router.push('/restoration')
+  } else if (role === 'evaluator') {
+    router.push('/evaluation')
+  }
+}
+
 // 方法
 const handleLogout = () => {
   // 清除本地存储的认证信息
@@ -112,6 +209,8 @@ onMounted(() => {
   const user = localStorage.getItem('currentUser')
   if (user) {
     currentUser.value = JSON.parse(user)
+    // 加载工作提示
+    loadWorkReminders()
   }
   
   // 初始化页面标题
@@ -159,6 +258,28 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
 }
+
+/* 工作提示样式 */
+.work-reminder {
+  position: relative;
+}
+
+.reminder-btn {
+  position: relative;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  transition: all 0.2s ease;
+  border-radius: 6px;
+}
+
+.reminder-btn:hover {
+  background: #f5f5f5;
+  color: #1f2937;
+}
+
+
 
 .user-info {
   display: flex;

@@ -120,26 +120,59 @@ const router = useRouter()
 
 const submitTime = ref('')
 
+// 清除所有流程相关的本地存储
+const clearAllFlowStorage = () => {
+  try {
+    // 清除当前工作流的存储
+    if (store.workflowId) {
+      localStorage.removeItem(`restoration_flow_${store.workflowId}`)
+      localStorage.removeItem(`workflow_submitted_${store.workflowId}`)
+    }
+    
+    // 清除所有修复流程相关的存储
+    const keysToRemove = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && (key.startsWith('restoration_flow_') || key.startsWith('workflow_submitted_'))) {
+        keysToRemove.push(key)
+      }
+    }
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key)
+    })
+    
+    console.log('已清除所有修复流程相关的本地存储')
+  } catch (error) {
+    console.error('清除本地存储失败:', error)
+  }
+}
+
 // 跳转到工作流列表
 const goToWorkflowList = () => {
   // 确保数据已清空
   store.clearFlow()
+  clearAllFlowStorage()
   router.push('/restoration')
+  MessagePlugin.info('已清除所有流程数据')
 }
 
 // 跳转到仪表盘
 const goToDashboard = () => {
   // 确保数据已清空
   store.clearFlow()
+  clearAllFlowStorage()
   router.push('/dashboard')
+  MessagePlugin.info('已清除所有流程数据')
 }
 
 // 创建新工作流
 const createNewWorkflow = () => {
   // 确保数据已清空
   store.clearFlow()
+  clearAllFlowStorage()
   router.push('/restoration')
-  MessagePlugin.info('可以创建新的修复工作流')
+  MessagePlugin.info('已清除所有流程数据，可以创建新的修复工作流')
 }
 
 // 复制工作流ID

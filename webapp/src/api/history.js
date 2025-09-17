@@ -18,7 +18,7 @@ import request from './request.js'
  */
 export const getEvaluationHistory = (params = {}) => {
   return request({
-    url: '/api/evaluations',
+    url: '/evaluations',
     method: 'GET',
     params: {
       search: params.search || '',
@@ -40,7 +40,7 @@ export const getEvaluationHistory = (params = {}) => {
  */
 export const getRollbackHistory = (params = {}) => {
   return request({
-    url: '/api/rollback-requests',
+    url: '/rollback-requests',
     method: 'GET',
     params: {
       search: params.search || '',
@@ -58,7 +58,7 @@ export const getRollbackHistory = (params = {}) => {
  */
 export const getEvaluationDetail = (evaluationId) => {
   return request({
-    url: `/api/evaluations/${evaluationId}`,
+    url: `/evaluations/${evaluationId}`,
     method: 'GET'
   })
 }
@@ -70,7 +70,7 @@ export const getEvaluationDetail = (evaluationId) => {
  */
 export const getRollbackDetail = (rollbackId) => {
   return request({
-    url: `/api/rollback-requests/${rollbackId}`,
+    url: `/rollback-requests/${rollbackId}`,
     method: 'GET'
   })
 }
@@ -82,7 +82,7 @@ export const getRollbackDetail = (rollbackId) => {
  */
 export const deleteEvaluation = (evaluationId) => {
   return request({
-    url: `/api/admin/evaluations/${evaluationId}`,
+    url: `/admin/evaluations/${evaluationId}`,
     method: 'DELETE'
   })
 }
@@ -94,7 +94,7 @@ export const deleteEvaluation = (evaluationId) => {
  */
 export const deleteRollbackRequest = (rollbackId) => {
   return request({
-    url: `/api/admin/rollback-requests/${rollbackId}`,
+    url: `/admin/rollback-requests/${rollbackId}`,
     method: 'DELETE'
   })
 }
@@ -106,7 +106,7 @@ export const deleteRollbackRequest = (rollbackId) => {
  */
 export const batchDeleteEvaluations = (evaluationIds) => {
   return request({
-    url: '/api/admin/evaluations/batch-delete',
+    url: '/admin/evaluations/batch-delete',
     method: 'POST',
     data: { evaluation_ids: evaluationIds }
   })
@@ -119,7 +119,7 @@ export const batchDeleteEvaluations = (evaluationIds) => {
  */
 export const batchDeleteRollbackRequests = (rollbackIds) => {
   return request({
-    url: '/api/admin/rollback-requests/batch-delete',
+    url: '/admin/rollback-requests/batch-delete',
     method: 'POST',
     data: { rollback_ids: rollbackIds }
   })

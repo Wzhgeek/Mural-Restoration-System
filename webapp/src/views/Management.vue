@@ -135,14 +135,12 @@
               :data="workflowsData"
               :columns="workflowColumns"
               :loading="workflowsLoading"
-              :selected-row-keys="selectedWorkflowKeys"
               :row-key="rowKey"
               :sort="sortInfo"
               :pagination="workflowPagination"
               vertical-align="top"
               hover
               stripe
-              @select-change="handleWorkflowSelectChange"
               @sort-change="handleWorkflowSort"
               @page-change="handleWorkflowPageChange"
               :max-height="tableMaxHeight"
@@ -150,7 +148,7 @@
             <template #status="{ row }">
               <t-tag
                 :theme="getWorkflowStatusTheme(row.status)"
-                variant="light"
+                :variant="row.status === 'draft' ? 'dark' : 'light'"
               >
                 {{ getWorkflowStatusText(row.status) }}
               </t-tag>
@@ -170,26 +168,11 @@
                   <t-icon name="view" />
                   查看
                 </t-link>
-                <t-link theme="danger" @click="handleDeleteWorkflow(slotProps.row)" v-if="canDelete">
-                  <t-icon name="delete" />
-                  删除
-                </t-link>
               </t-space>
             </template>
           </t-table>
           </div>
 
-          <!-- 批量操作按钮 -->
-          <div class="batch-actions" v-if="selectedWorkflowKeys.length > 0 && canDelete">
-            <t-space>
-              <t-button theme="danger" @click="handleBatchDeleteWorkflows">
-                <template #icon>
-                  <t-icon name="delete" />
-                </template>
-                批量删除 ({{ selectedWorkflowKeys.length }})
-              </t-button>
-            </t-space>
-          </div>
         </div>
       </t-card>
 
@@ -198,14 +181,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import Layout from '@/components/Layout.vue'
 import request from '@/api/request.js'
 import {
   getAllWorkflows,
-  deleteWorkflow,
-  batchDeleteWorkflows,
   getManagementStats
 } from '@/api/management.js'
 
@@ -225,10 +206,9 @@ const sortBy = ref('created_at_desc')
 
 const workflowsData = ref([])
 const statsData = ref({})
-const selectedWorkflowKeys = ref([])
 
 const workflowsLoading = ref(false)
-const tableMaxHeight = ref(500)
+const tableMaxHeight = ref(300)
 
 
 // 分页配置
@@ -246,7 +226,6 @@ const sortInfo = ref({})
 
 // 表格列配置
 const workflowColumns = [
-  { colKey: 'row-select', type: 'multiple', width: 64, fixed: 'left' },
   {
     title: '工作流标题',
     colKey: 'title',
@@ -286,10 +265,6 @@ const workflowColumns = [
 
 const rowKey = 'workflow_id'
 
-// 计算属性
-const canDelete = computed(() => {
-  return isAdmin.value
-})
 
 // 方法
 
@@ -455,9 +430,6 @@ const handleWorkflowPageChange = (current, pageInfo) => {
 }
 
 
-const handleWorkflowSelectChange = (value) => {
-  selectedWorkflowKeys.value = value
-}
 
 
 const refreshData = () => {
@@ -469,8 +441,8 @@ const viewWorkflowDetail = async (row) => {
   try {
     // 获取工作流详情，包括表单和评估信息
     const [formsResponse, evaluationsResponse] = await Promise.all([
-      request({ url: `/api/workflows/${row.workflow_id}/forms`, method: 'GET' }),
-      request({ url: `/api/workflows/${row.workflow_id}/evaluations`, method: 'GET' })
+      request({ url: `/workflows/${row.workflow_id}/forms`, method: 'GET' }),
+      request({ url: `/workflows/${row.workflow_id}/evaluations`, method: 'GET' })
     ])
     
     const forms = formsResponse || []
@@ -484,40 +456,6 @@ const viewWorkflowDetail = async (row) => {
   }
 }
 
-const handleDeleteWorkflow = async (row) => {
-  if (!confirm('确定要删除这个工作流吗？此操作不可撤销！')) {
-    return
-  }
-
-  try {
-    await deleteWorkflow(row.workflow_id)
-    MessagePlugin.success('删除成功')
-    refreshData()
-  } catch (error) {
-
-    MessagePlugin.error('删除失败')
-  }
-}
-
-const handleBatchDeleteWorkflows = async () => {
-  if (selectedWorkflowKeys.value.length === 0) {
-    MessagePlugin.warning('请先选择要删除的工作流')
-    return
-  }
-
-  if (!confirm(`确定要删除选中的 ${selectedWorkflowKeys.value.length} 条记录吗？此操作不可撤销！`)) {
-    return
-  }
-
-  try {
-    await batchDeleteWorkflows(selectedWorkflowKeys.value)
-    MessagePlugin.success('批量删除成功')
-    selectedWorkflowKeys.value = []
-    refreshData()
-  } catch (error) {
-    MessagePlugin.error('批量删除失败')
-  }
-}
 
 
 // 工具方法
@@ -525,7 +463,7 @@ const getWorkflowStatusTheme = (status) => {
   switch (status) {
     case 'finished': return 'success'
     case 'running': return 'warning'
-    case 'draft': return 'info'
+    case 'draft': return 'default'
     case 'paused': return 'warning'
     case 'revoked': return 'danger'
     default: return 'default'
@@ -569,51 +507,61 @@ const showWorkflowDetailDialog = (workflow, forms, evaluations) => {
   dialog.innerHTML = `
     <div class="workflow-detail-dialog" style="
       background: white;
-      border-radius: 8px;
-      max-width: 1000px;
-      max-height: 80vh;
+      border-radius: 12px;
+      max-width: 900px;
+      max-height: 85vh;
       width: 90%;
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     ">
       <div class="dialog-header" style="
-        padding: 20px;
+        padding: 24px;
         border-bottom: 1px solid #e7e7e7;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
       ">
-        <h3 style="margin: 0; font-size: 18px; font-weight: 600;">工作流详情</h3>
+        <h3 style="margin: 0; font-size: 20px; font-weight: 600; color: #333;">工作流详情</h3>
         <button class="close-btn" style="
-          background: none;
+          background: #f5f5f5;
           border: none;
-          font-size: 24px;
+          font-size: 20px;
           cursor: pointer;
           color: #666;
-        ">&times;</button>
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+        " onmouseover="this.style.background='#e9ecef'; this.style.color='#333';" onmouseout="this.style.background='#f5f5f5'; this.style.color='#666';">&times;</button>
       </div>
       
       <div class="dialog-content" style="
         flex: 1;
         overflow-y: auto;
-        padding: 20px;
+        padding: 24px;
+        background: #fafbfc;
       ">
-        <div class="workflow-info" style="margin-bottom: 24px;">
-          <h4 style="margin: 0 0 12px 0; color: #333;">基本信息</h4>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div><strong>标题：</strong>${workflow.title}</div>
-            <div><strong>发起人：</strong>${workflow.initiator_name}</div>
-            <div><strong>状态：</strong>${getWorkflowStatusText(workflow.status)}</div>
-            <div><strong>当前步骤：</strong>第 ${workflow.current_step} 步</div>
-            <div><strong>创建时间：</strong>${formatDate(workflow.created_at)}</div>
-            <div><strong>更新时间：</strong>${formatDate(workflow.updated_at)}</div>
+        <div class="workflow-info" style="margin-bottom: 32px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+          <h4 style="margin: 0 0 16px 0; color: #333; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e7e7e7; padding-bottom: 8px;">基本信息</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div style="padding: 8px 0;"><strong style="color: #666;">标题：</strong><span style="color: #333; margin-left: 8px;">${workflow.title}</span></div>
+            <div style="padding: 8px 0;"><strong style="color: #666;">发起人：</strong><span style="color: #333; margin-left: 8px;">${workflow.initiator_name}</span></div>
+            <div style="padding: 8px 0;"><strong style="color: #666;">状态：</strong><span style="color: #333; margin-left: 8px;">${getWorkflowStatusText(workflow.status)}</span></div>
+            <div style="padding: 8px 0;"><strong style="color: #666;">当前步骤：</strong><span style="color: #333; margin-left: 8px;">第 ${workflow.current_step} 步</span></div>
+            <div style="padding: 8px 0;"><strong style="color: #666;">创建时间：</strong><span style="color: #333; margin-left: 8px;">${formatDate(workflow.created_at)}</span></div>
+            <div style="padding: 8px 0;"><strong style="color: #666;">更新时间：</strong><span style="color: #333; margin-left: 8px;">${formatDate(workflow.updated_at)}</span></div>
           </div>
-          ${workflow.description ? `<div style="margin-top: 12px;"><strong>描述：</strong>${workflow.description}</div>` : ''}
+          ${workflow.description ? `<div style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px; border-left: 2px solid #e7e7e7;"><strong style="color: #666;">描述：</strong><br><span style="color: #333; margin-top: 4px; display: inline-block;">${workflow.description}</span></div>` : ''}
         </div>
         
-        <div class="forms-section" style="margin-bottom: 24px;">
-          <h4 style="margin: 0 0 12px 0; color: #333;">修复表单历史</h4>
+        <div class="forms-section" style="margin-bottom: 32px;">
+          <h4 style="margin: 0 0 16px 0; color: #333; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e7e7e7; padding-bottom: 8px;">修复表单历史</h4>
           ${forms.length === 0 ? '<p style="color: #666; text-align: center; padding: 20px;">暂无表单</p>' : ''}
           ${forms.map((form, index) => `
             <div class="form-item" style="
@@ -623,9 +571,13 @@ const showWorkflowDetailDialog = (workflow, forms, evaluations) => {
               margin-bottom: 12px;
               background: #fafafa;
             ">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <strong>第 ${form.step_no} 步 - ${form.submitter_name}</strong>
-                <span style="font-size: 12px; color: #666;">${formatDate(form.created_at)}</span>
+              <div style="margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                  <strong style="color: #333; font-size: 14px;">第 ${form.step_no} 步 - ${form.submitter_name}</strong>
+                </div>
+                <div style="font-size: 12px; color: #666; background: #f0f0f0; padding: 4px 8px; border-radius: 4px; display: inline-block;">
+                  ${formatDate(form.created_at)}
+                </div>
               </div>
               ${form.image_url ? `
                 <div style="margin-bottom: 8px;">
@@ -633,24 +585,26 @@ const showWorkflowDetailDialog = (workflow, forms, evaluations) => {
                        onerror="this.style.display='none'">
                 </div>
               ` : ''}
-              ${form.image_desc ? `<div style="margin-bottom: 8px;"><strong>图片描述：</strong>${form.image_desc}</div>` : ''}
-              ${form.image_desc_file ? `<div style="margin-bottom: 8px;"><strong>图片描述附件：</strong><a href="${form.image_desc_file}" target="_blank" style="color: #007bff; text-decoration: none;">📄 下载附件</a></div>` : ''}
-              ${form.restoration_opinion ? `<div style="margin-bottom: 8px;"><strong>修复意见：</strong>${form.restoration_opinion}</div>` : ''}
-              ${form.opinion_file ? `<div style="margin-bottom: 8px;"><strong>修复意见附件：</strong><a href="${form.opinion_file}" target="_blank" style="color: #007bff; text-decoration: none;">📄 下载附件</a></div>` : ''}
+              ${form.image_desc ? `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px;"><strong style="color: #333;">图片描述：</strong><br><span style="color: #333;">${form.image_desc}</span></div>` : ''}
+              ${form.image_desc_file ? `<div style="margin-bottom: 12px;"><strong style="color: #333;">图片描述附件：</strong><br><a href="${form.image_desc_file}" target="_blank" style="color: #007bff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">📄 下载附件</a></div>` : ''}
+              ${form.restoration_opinion ? `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; border-left: 2px solid #e7e7e7;"><strong style="color: #333;">修复意见：</strong><br><span style="color: #333;">${form.restoration_opinion}</span></div>` : ''}
+              ${form.opinion_file ? `<div style="margin-bottom: 12px;"><strong style="color: #333;">修复意见附件：</strong><br><a href="${form.opinion_file}" target="_blank" style="color: #007bff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">📄 下载附件</a></div>` : ''}
               ${form.opinion_tags && form.opinion_tags.length > 0 ? `
-                <div style="margin-bottom: 8px;">
-                  <strong>标签：</strong>
-                  ${form.opinion_tags.map(tag => `<span style="background: #e7e7e7; padding: 2px 6px; border-radius: 3px; font-size: 12px; margin-right: 4px;">${tag}</span>`).join('')}
+                <div style="margin-bottom: 12px;">
+                  <strong style="color: #333;">标签：</strong><br>
+                  <div style="margin-top: 4px;">
+                    ${form.opinion_tags.map(tag => `<span style="background: #f0f0f0; color: #666; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 6px; margin-bottom: 4px; display: inline-block;">${tag}</span>`).join('')}
+                  </div>
                 </div>
               ` : ''}
-              ${form.remark ? `<div style="margin-bottom: 8px;"><strong>备注：</strong>${form.remark}</div>` : ''}
-              ${form.attachment ? `<div><strong>其他附件：</strong><a href="${form.attachment}" target="_blank" style="color: #007bff; text-decoration: none;">📄 下载附件</a></div>` : ''}
+              ${form.remark ? `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; border-left: 2px solid #e7e7e7;"><strong style="color: #333;">备注：</strong><br><span style="color: #333;">${form.remark}</span></div>` : ''}
+              ${form.attachment ? `<div style="margin-bottom: 8px;"><strong style="color: #333;">其他附件：</strong><br><a href="${form.attachment}" target="_blank" style="color: #007bff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">📄 下载附件</a></div>` : ''}
             </div>
           `).join('')}
         </div>
         
         <div class="evaluations-section">
-          <h4 style="margin: 0 0 12px 0; color: #333;">评估意见</h4>
+          <h4 style="margin: 0 0 16px 0; color: #333; font-size: 16px; font-weight: 600; border-bottom: 1px solid #e7e7e7; padding-bottom: 8px;">评估意见</h4>
           ${evaluations.length === 0 ? '<p style="color: #666; text-align: center; padding: 20px;">暂无评估</p>' : ''}
           ${evaluations.map(evaluation => `
             <div class="evaluation-item" style="
@@ -660,19 +614,23 @@ const showWorkflowDetailDialog = (workflow, forms, evaluations) => {
               margin-bottom: 12px;
               background: #fafafa;
             ">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <strong>${evaluation.evaluator_name}</strong>
-                <span style="background: #007bff; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">评分: ${evaluation.score}</span>
+              <div style="margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                  <strong style="color: #333; font-size: 14px;">${evaluation.evaluator_name}</strong>
+                  <span style="background: #f0f0f0; color: #666; padding: 2px 8px; border-radius: 3px; font-size: 12px; margin-left: 8px;">评分: ${evaluation.score}</span>
+                </div>
+                <div style="font-size: 12px; color: #666; background: #f0f0f0; padding: 4px 8px; border-radius: 4px; display: inline-block;">
+                  ${formatDate(evaluation.created_at)}
+                </div>
               </div>
-              ${evaluation.comment ? `<div style="margin-bottom: 8px;">${evaluation.comment}</div>` : ''}
+              ${evaluation.comment ? `<div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px; border-left: 2px solid #e7e7e7;"><span style="color: #333;">${evaluation.comment}</span></div>` : ''}
               ${evaluation.evaluation_file ? `
-                <div>
-                  <a href="${evaluation.evaluation_file}" target="_blank" style="color: #007bff; text-decoration: none;">
+                <div style="margin-bottom: 8px;">
+                  <a href="${evaluation.evaluation_file}" target="_blank" style="color: #007bff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
                     📄 查看评估文件
                   </a>
                 </div>
               ` : ''}
-              <div style="font-size: 12px; color: #666; margin-top: 8px;">${formatDate(evaluation.created_at)}</div>
             </div>
           `).join('')}
         </div>
@@ -716,23 +674,25 @@ onMounted(() => {
 
 <style lang="less" scoped>
 .management-container {
-  padding: 24px;
+  padding: 16px;
   background-color: var(--td-bg-color-container);
-  min-height: 100vh;
+  height: calc(100vh - 80px);
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .page-header {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 
   .page-title {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 600;
     color: var(--td-text-color-primary);
-    margin: 0 0 8px 0;
+    margin: 0 0 4px 0;
   }
 
   .page-description {
-    font-size: 14px;
+    font-size: 12px;
     color: var(--td-text-color-secondary);
     margin: 0;
   }
@@ -742,8 +702,8 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding: 16px;
+  margin-bottom: 16px;
+  padding: 12px;
   background: var(--td-bg-color-container);
   border-radius: var(--td-radius-medium);
   border: 1px solid var(--td-border-level-1-color);
@@ -760,25 +720,25 @@ onMounted(() => {
 }
 
 .stats-section {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 
   .stat-card {
     text-align: center;
 
     :deep(.t-card__body) {
-      padding: 16px;
+      padding: 12px;
     }
 
     .stat-content {
       .stat-number {
-        font-size: 24px;
+        font-size: 20px;
         font-weight: 600;
         color: var(--td-text-color-primary);
-        margin-bottom: 4px;
+        margin-bottom: 2px;
       }
 
       .stat-label {
-        font-size: 12px;
+        font-size: 11px;
         color: var(--td-text-color-secondary);
       }
     }
@@ -859,6 +819,51 @@ onMounted(() => {
     .table-container {
       :deep(.t-table) {
         font-size: 12px;
+      }
+    }
+  }
+}
+
+// 100%分辨率优化
+@media (max-height: 900px) {
+  .management-container {
+    padding: 12px;
+    height: calc(100vh - 60px);
+  }
+  
+  .page-header {
+    margin-bottom: 12px;
+    
+    .page-title {
+      font-size: 18px;
+    }
+    
+    .page-description {
+      font-size: 11px;
+    }
+  }
+  
+  .admin-controls {
+    margin-bottom: 12px;
+    padding: 8px;
+  }
+  
+  .stats-section {
+    margin-bottom: 12px;
+    
+    .stat-card {
+      :deep(.t-card__body) {
+        padding: 8px;
+      }
+      
+      .stat-content {
+        .stat-number {
+          font-size: 18px;
+        }
+        
+        .stat-label {
+          font-size: 10px;
+        }
       }
     }
   }

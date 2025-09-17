@@ -18,7 +18,7 @@ import request from './request.js'
  */
 export const getEvaluationWorkflows = (params = {}) => {
   return request({
-    url: '/api/workflows',
+    url: '/workflows',
     method: 'GET',
     params: {
       status: params.status || 'finished',
@@ -41,7 +41,7 @@ export const getEvaluationWorkflows = (params = {}) => {
  */
 export const getEvaluationHistory = (params = {}) => {
   return request({
-    url: '/api/evaluations',
+    url: '/evaluations',
     method: 'GET',
     params: {
       search: params.search || '',
@@ -60,7 +60,7 @@ export const getEvaluationHistory = (params = {}) => {
  */
 export const getEvaluationDetail = (evaluationId) => {
   return request({
-    url: `/api/evaluation/${evaluationId}`,
+    url: `/evaluation/${evaluationId}`,
     method: 'GET'
   })
 }
@@ -72,7 +72,7 @@ export const getEvaluationDetail = (evaluationId) => {
  */
 export const deleteEvaluation = (evaluationId) => {
   return request({
-    url: `/api/admin/evaluation/${evaluationId}`,
+    url: `/admin/evaluation/${evaluationId}`,
     method: 'DELETE'
   })
 }
@@ -84,7 +84,7 @@ export const deleteEvaluation = (evaluationId) => {
  */
 export const batchDeleteEvaluations = (evaluationIds) => {
   return request({
-    url: '/api/admin/evaluation/batch-delete',
+    url: '/admin/evaluation/batch-delete',
     method: 'POST',
     data: { evaluation_ids: evaluationIds }
   })
@@ -98,11 +98,11 @@ export const batchDeleteEvaluations = (evaluationIds) => {
 export const getWorkflowDetail = (workflowId) => {
   return Promise.all([
     request({
-      url: `/api/workflows/${workflowId}/forms`,
+      url: `/workflows/${workflowId}/forms`,
       method: 'GET'
     }),
     request({
-      url: `/api/workflows/${workflowId}/evaluations`,
+      url: `/workflows/${workflowId}/evaluations`,
       method: 'GET'
     })
   ]).then(([forms, evaluations]) => ({
@@ -135,7 +135,7 @@ export const submitEvaluation = (evaluationData) => {
   }
 
   return request({
-    url: '/api/evaluations',
+    url: '/evaluations',
     method: 'POST',
     data: formData,
     headers: {
@@ -151,7 +151,7 @@ export const submitEvaluation = (evaluationData) => {
  */
 export const deleteWorkflow = (workflowId) => {
   return request({
-    url: `/api/admin/workflows/${workflowId}`,
+    url: `/admin/workflows/${workflowId}`,
     method: 'DELETE'
   })
 }
@@ -163,7 +163,7 @@ export const deleteWorkflow = (workflowId) => {
  */
 export const batchDeleteWorkflows = (workflowIds) => {
   return request({
-    url: '/api/admin/workflows/batch-delete',
+    url: '/admin/workflows/batch-delete',
     method: 'POST',
     data: { workflow_ids: workflowIds }
   })
@@ -175,7 +175,7 @@ export const batchDeleteWorkflows = (workflowIds) => {
  */
 export const getEvaluationStats = () => {
   return request({
-    url: '/api/dashboard',
+    url: '/dashboard',
     method: 'GET'
   })
 }

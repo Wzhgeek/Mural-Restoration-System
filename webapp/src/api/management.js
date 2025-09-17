@@ -18,7 +18,7 @@ import request from './request.js'
  */
 export const getAllWorkflows = (params = {}) => {
   return request({
-    url: '/api/workflows/paginated',
+    url: '/workflows/paginated',
     method: 'GET',
     params: {
       search: params.search || '',
@@ -40,7 +40,7 @@ export const getAllWorkflows = (params = {}) => {
  */
 export const getRollbackRequests = (params = {}) => {
   return request({
-    url: '/api/rollback-requests',
+    url: '/rollback-requests',
     method: 'GET',
     params: {
       search: params.search || '',
@@ -58,7 +58,7 @@ export const getRollbackRequests = (params = {}) => {
  */
 export const deleteWorkflow = (workflowId) => {
   return request({
-    url: `/api/admin/workflows/${workflowId}`,
+    url: `/admin/workflows/${workflowId}`,
     method: 'DELETE'
   })
 }
@@ -70,7 +70,7 @@ export const deleteWorkflow = (workflowId) => {
  */
 export const batchDeleteWorkflows = (workflowIds) => {
   return request({
-    url: '/api/admin/workflows/batch-delete',
+    url: '/admin/workflows/batch-delete',
     method: 'POST',
     data: { ids: workflowIds }
   })
@@ -85,7 +85,7 @@ export const batchDeleteWorkflows = (workflowIds) => {
  */
 export const approveRollback = (rollbackId, action, comment = '') => {
   return request({
-    url: `/api/rollback-requests/${rollbackId}/approve`,
+    url: `/rollback-requests/${rollbackId}/approve`,
     method: 'POST',
     data: {
       approve: action === 'approved',
@@ -101,7 +101,7 @@ export const approveRollback = (rollbackId, action, comment = '') => {
  */
 export const deleteRollback = (rollbackId) => {
   return request({
-    url: `/api/admin/rollback-requests/${rollbackId}`,
+    url: `/admin/rollback-requests/${rollbackId}`,
     method: 'DELETE'
   })
 }
@@ -113,7 +113,7 @@ export const deleteRollback = (rollbackId) => {
  */
 export const batchDeleteRollbacks = (rollbackIds) => {
   return request({
-    url: '/api/admin/rollback-requests/batch-delete',
+    url: '/admin/rollback-requests/batch-delete',
     method: 'POST',
     data: { ids: rollbackIds }
   })
@@ -125,7 +125,7 @@ export const batchDeleteRollbacks = (rollbackIds) => {
  */
 export const getManagementStats = () => {
   return request({
-    url: '/api/dashboard',
+    url: '/dashboard',
     method: 'GET'
   })
 }
@@ -141,7 +141,7 @@ export const getManagementStats = () => {
  */
 export const getUsers = (params = {}) => {
   return request({
-    url: '/api/admin/users',
+    url: '/admin/users',
     method: 'GET',
     params: {
       search: params.search || '',
@@ -160,7 +160,7 @@ export const getUsers = (params = {}) => {
  */
 export const updateUserRole = (userId, role) => {
   return request({
-    url: `/api/admin/users/${userId}/role`,
+    url: `/admin/users/${userId}/role`,
     method: 'PUT',
     data: { role: role }
   })
@@ -173,7 +173,7 @@ export const updateUserRole = (userId, role) => {
  */
 export const deleteUser = (userId) => {
   return request({
-    url: `/api/admin/users/${userId}`,
+    url: `/admin/users/${userId}`,
     method: 'DELETE'
   })
 }
@@ -190,7 +190,7 @@ export const deleteUser = (userId) => {
  */
 export const getSystemLogs = (params = {}) => {
   return request({
-    url: '/api/admin/logs',
+    url: '/admin/logs',
     method: 'GET',
     params: {
       level: params.level || '',
@@ -210,7 +210,7 @@ export const getSystemLogs = (params = {}) => {
  */
 export const exportData = (dataType, filters = {}) => {
   return request({
-    url: '/api/admin/export',
+    url: '/admin/export',
     method: 'POST',
     data: {
       data_type: dataType,
@@ -225,7 +225,7 @@ export const exportData = (dataType, filters = {}) => {
  */
 export const getSystemConfig = () => {
   return request({
-    url: '/api/admin/config',
+    url: '/admin/config',
     method: 'GET'
   })
 }
@@ -237,7 +237,7 @@ export const getSystemConfig = () => {
  */
 export const updateSystemConfig = (config) => {
   return request({
-    url: '/api/admin/config',
+    url: '/admin/config',
     method: 'PUT',
     data: config
   })

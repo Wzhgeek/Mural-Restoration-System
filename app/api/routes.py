@@ -6,7 +6,7 @@ API路由扩展
 邮箱: wangzh011031@163.com
 时间: 2025年
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Form as FormField, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Form as FormField, UploadFile, File, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, and_, or_, String
 from typing import List, Optional
@@ -18,6 +18,7 @@ from ..models import *
 from ..schemas import *
 from ..auth import *
 from ..services import file_service
+from sqlalchemy import func
 
 router = APIRouter(prefix="/api")
 
@@ -29,81 +30,64 @@ async def create_form(
     restoration_opinion: Optional[str] = FormField(None),
     opinion_tags: Optional[str] = FormField(None),  # JSON字符串
     remark: Optional[str] = FormField(None),
-    # 单个文件字段（向后兼容）
-    image_file: Optional[UploadFile] = File(None),
     image_desc_file: Optional[UploadFile] = File(None),
     opinion_file: Optional[UploadFile] = File(None),
     attachment_file: Optional[UploadFile] = File(None),
-    # 多文件字段
-    image_files: List[UploadFile] = File([]),
-    image_desc_files: List[UploadFile] = File([]),
-    opinion_files: List[UploadFile] = File([]),
-    attachment_files: List[UploadFile] = File([]),
     current_user: User = Depends(require_restorer),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    request: Request = None
 ):
     """创建修复表单"""
     
-    # 检查工作流是否存在
-    workflow = db.query(Workflow).filter(Workflow.workflow_id == workflow_id).first()
-    if not workflow:
-        raise HTTPException(status_code=404, detail="工作流不存在")
-    
-    # 检查权限（只有工作流发起人或管理员可以提交表单）
-    if current_user.role.role_key != 'admin' and workflow.initiator_id != current_user.user_id:
-        raise HTTPException(status_code=403, detail="无权限操作此工作流")
-    
-    # 获取下一个步骤号
-    max_step = db.query(func.max(Form.step_no)).filter(Form.workflow_id == workflow_id).scalar()
-    next_step = (max_step or 0) + 1
-    
-    # 处理文件上传
-    # 单个文件字段（向后兼容）
-    image_url = None
-    image_desc_file_url = None
-    opinion_file_url = None
-    attachment_url = None
-    image_meta = None
-    
-    # 多文件字段
-    image_urls = []
-    image_metas = []
-    image_desc_file_urls = []
-    opinion_file_urls = []
-    attachment_urls = []
-    
     try:
-        # 处理单个图片文件（向后兼容）
-        if image_file:
-            image_content = await image_file.read()
-            image_url = file_service.upload_file(
-                file_content=image_content,
-                filename=image_file.filename,
-                content_type=image_file.content_type
-            )
-            image_meta = {
-                "filename": image_file.filename,
-                "size": len(image_content),
-                "content_type": image_file.content_type
-            }
+        # 检查工作流是否存在
+        workflow = db.query(Workflow).filter(Workflow.workflow_id == workflow_id).first()
+        if not workflow:
+            raise HTTPException(status_code=404, detail="工作流不存在")
         
-        # 处理多个图片文件
-        for img_file in image_files:
-            if img_file and img_file.filename:
-                img_content = await img_file.read()
-                img_url = file_service.upload_file(
-                    file_content=img_content,
-                    filename=img_file.filename,
-                    content_type=img_file.content_type
-                )
-                image_urls.append(img_url)
-                image_metas.append({
-                    "filename": img_file.filename,
-                    "size": len(img_content),
-                    "content_type": img_file.content_type
-                })
+        # 检查权限（只有工作流发起人或管理员可以提交表单）
+        if current_user.role.role_key != 'admin' and workflow.initiator_id != current_user.user_id:
+            raise HTTPException(status_code=403, detail="无权限操作此工作流")
         
-        # 处理单个描述文件（向后兼容）
+        # 获取下一个步骤号
+        max_step = db.query(func.max(Form.step_no)).filter(Form.workflow_id == workflow_id).scalar()
+        next_step = (max_step or 0) + 1
+        
+        # 处理文件上传
+        image_urls = []
+        image_desc_file_url = None
+        opinion_file_url = None
+        attachment_url = None
+        image_meta = []
+        
+        # 处理多张图片文件 - 从 request.form() 获取额外的图片文件
+        if request:
+            form_data = await request.form()
+            image_files = []
+            
+            # 收集所有图片文件
+            for key, value in form_data.items():
+                if key.startswith('image_file_') and hasattr(value, 'filename'):
+                    image_files.append(value)
+            
+            # 上传每张图片
+            for image_file in image_files:
+                if image_file:
+                    image_content = await image_file.read()
+                    image_url = file_service.upload_file(
+                        file_content=image_content,
+                        filename=image_file.filename,
+                        content_type=image_file.content_type
+                    )
+                    image_urls.append(image_url)
+                    # 图片元数据 - 存储为 JSONB 对象
+                    image_meta.append({
+                        "filename": image_file.filename,
+                        "size": len(image_content),
+                        "content_type": image_file.content_type,
+                        "url": image_url
+                    })
+        
         if image_desc_file:
             desc_content = await image_desc_file.read()
             image_desc_file_url = file_service.upload_file(
@@ -112,18 +96,6 @@ async def create_form(
                 content_type=image_desc_file.content_type
             )
         
-        # 处理多个描述文件
-        for desc_file in image_desc_files:
-            if desc_file and desc_file.filename:
-                desc_content = await desc_file.read()
-                desc_url = file_service.upload_file(
-                    file_content=desc_content,
-                    filename=desc_file.filename,
-                    content_type=desc_file.content_type
-                )
-                image_desc_file_urls.append(desc_url)
-        
-        # 处理单个意见文件（向后兼容）
         if opinion_file:
             opinion_content = await opinion_file.read()
             opinion_file_url = file_service.upload_file(
@@ -132,18 +104,6 @@ async def create_form(
                 content_type=opinion_file.content_type
             )
         
-        # 处理多个意见文件
-        for op_file in opinion_files:
-            if op_file and op_file.filename:
-                op_content = await op_file.read()
-                op_url = file_service.upload_file(
-                    file_content=op_content,
-                    filename=op_file.filename,
-                    content_type=op_file.content_type
-                )
-                opinion_file_urls.append(op_url)
-        
-        # 处理单个附件（向后兼容）
         if attachment_file:
             attachment_content = await attachment_file.read()
             attachment_url = file_service.upload_file(
@@ -152,98 +112,73 @@ async def create_form(
                 content_type=attachment_file.content_type
             )
         
-        # 处理多个附件
-        for att_file in attachment_files:
-            if att_file and att_file.filename:
-                att_content = await att_file.read()
-                att_url = file_service.upload_file(
-                    file_content=att_content,
-                    filename=att_file.filename,
-                    content_type=att_file.content_type
-                )
-                attachment_urls.append(att_url)
+        # 处理标签
+        tags_list = None
+        if opinion_tags:
+            try:
+                tags_list = json.loads(opinion_tags)
+            except:
+                tags_list = [tag.strip() for tag in opinion_tags.split(',') if tag.strip()]
+        
+        # 创建表单
+        form = Form(
+            workflow_id=workflow_id,
+            step_no=next_step,
+            submitter_id=current_user.user_id,
+            image_url=json.dumps(image_urls) if image_urls else None,  # 将图片URL数组序列化为JSON字符串
+            image_meta=image_meta,  # 存储图片元数据数组
+            image_desc=image_desc,
+            image_desc_file=image_desc_file_url,
+            restoration_opinion=restoration_opinion,
+            opinion_tags=tags_list,
+            opinion_file=opinion_file_url,
+            remark=remark,
+            attachment=attachment_url
+        )
+        
+        db.add(form)
+        
+        # 更新工作流状态和当前步骤
+        workflow.current_step = next_step
+        if workflow.status == 'draft':
+            workflow.status = 'running'
+        workflow.updated_at = func.now()
+        
+        db.commit()
+        db.refresh(form)
+        
+        # 记录操作日志
+        log = StepLog(
+            form_id=form.form_id,
+            action='submit',
+            operator_id=current_user.user_id,
+            comment=f"提交第{next_step}步修复表单"
+        )
+        db.add(log)
+        db.commit()
+        
+        return FormResponse(
+            form_id=form.form_id,
+            workflow_id=form.workflow_id,
+            step_no=form.step_no,
+            submitter_name=form.submitter.full_name,
+            image_url=json.loads(form.image_url) if form.image_url else None,
+            image_meta=form.image_meta if form.image_meta else None,
+            image_desc=form.image_desc,
+            image_desc_file=form.image_desc_file,
+            restoration_opinion=form.restoration_opinion,
+            opinion_tags=form.opinion_tags,
+            opinion_file=form.opinion_file,
+            remark=form.remark,
+            attachment=form.attachment,
+            created_at=form.created_at
+        )
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
-    
-    # 处理标签
-    tags_list = None
-    if opinion_tags:
-        try:
-            tags_list = json.loads(opinion_tags)
-        except:
-            tags_list = [tag.strip() for tag in opinion_tags.split(',') if tag.strip()]
-    
-    # 创建表单
-    form = Form(
-        workflow_id=workflow_id,
-        step_no=next_step,
-        submitter_id=current_user.user_id,
-        # 单个文件字段（向后兼容）
-        image_url=image_url,
-        image_meta=image_meta,
-        image_desc_file=image_desc_file_url,
-        opinion_file=opinion_file_url,
-        attachment=attachment_url,
-        # 多文件字段
-        image_urls=image_urls if image_urls else None,
-        image_metas=image_metas if image_metas else None,
-        image_desc_files=image_desc_file_urls if image_desc_file_urls else None,
-        opinion_files=opinion_file_urls if opinion_file_urls else None,
-        attachments=attachment_urls if attachment_urls else None,
-        # 其他字段
-        image_desc=image_desc,
-        restoration_opinion=restoration_opinion,
-        opinion_tags=tags_list,
-        remark=remark
-    )
-    
-    db.add(form)
-    
-    # 更新工作流状态和当前步骤
-    workflow.current_step = next_step
-    if workflow.status == 'draft':
-        workflow.status = 'running'
-    workflow.updated_at = func.now()
-    
-    db.add(form)
-    db.commit()
-    db.refresh(form)
-    
-    # 记录操作日志
-    log = StepLog(
-        form_id=form.form_id,
-        action='submit',
-        operator_id=current_user.user_id,
-        comment=f"提交第{next_step}步修复表单"
-    )
-    db.add(log)
-    db.commit()
-    
-    return FormResponse(
-        form_id=form.form_id,
-        workflow_id=form.workflow_id,
-        step_no=form.step_no,
-        submitter_name=form.submitter.full_name,
-        # 单个文件字段（向后兼容）
-        image_url=form.image_url,
-        image_meta=form.image_meta,
-        image_desc_file=form.image_desc_file,
-        opinion_file=form.opinion_file,
-        attachment=form.attachment,
-        # 多文件字段
-        image_urls=form.image_urls,
-        image_metas=form.image_metas,
-        image_desc_files=form.image_desc_files,
-        opinion_files=form.opinion_files,
-        attachments=form.attachments,
-        # 其他字段
-        image_desc=form.image_desc,
-        restoration_opinion=form.restoration_opinion,
-        opinion_tags=form.opinion_tags,
-        remark=form.remark,
-        created_at=form.created_at
-    )
+        print(f"创建表单时发生错误: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"创建表单失败: {str(e)}")
 
 @router.get("/workflows/{workflow_id}/forms", response_model=List[FormResponse])
 async def get_workflow_forms(
@@ -273,8 +208,8 @@ async def get_workflow_forms(
             workflow_id=f.workflow_id,
             step_no=f.step_no,
             submitter_name=f.submitter.full_name,
-            image_url=f.image_url,
-            image_meta=f.image_meta,
+            image_url=json.loads(f.image_url) if f.image_url else None,
+            image_meta=f.image_meta if f.image_meta else None,
             image_desc=f.image_desc,
             image_desc_file=f.image_desc_file,
             restoration_opinion=f.restoration_opinion,
@@ -341,10 +276,7 @@ async def create_evaluation(
     workflow_id: str = FormField(...),
     score: int = FormField(...),
     comment: str = FormField(None),
-    # 单个文件字段（向后兼容）
     support_file: UploadFile = File(None),
-    # 多文件字段
-    support_files: List[UploadFile] = File([]),
     current_user: User = Depends(require_evaluator),
     db: Session = Depends(get_db)
 ):
@@ -361,7 +293,6 @@ async def create_evaluation(
         raise HTTPException(status_code=400, detail="评分必须在0-100之间")
     
     # 处理文件上传
-    # 单个文件字段（向后兼容）
     support_file_url = None
     if support_file and support_file.filename:
         try:
@@ -373,21 +304,6 @@ async def create_evaluation(
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail="文件上传失败")
-    
-    # 多文件字段
-    support_file_urls = []
-    for sup_file in support_files:
-        if sup_file and sup_file.filename:
-            try:
-                file_content = await sup_file.read()
-                file_url = file_service.upload_file(
-                    file_content=file_content,
-                    filename=sup_file.filename,
-                    content_type=sup_file.content_type
-                )
-                support_file_urls.append(file_url)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
     
     # 检查工作流是否存在且已完成
     workflow = db.query(Workflow).filter(
@@ -410,10 +326,7 @@ async def create_evaluation(
         evaluator_id=current_user.user_id,
         score=score,
         comment=comment,
-        # 单个文件字段（向后兼容）
-        evaluation_file=support_file_url,
-        # 多文件字段
-        evaluation_files=support_file_urls if support_file_urls else None
+        evaluation_file=support_file_url  # 使用统一的字段名
     )
     
     db.add(evaluation)
@@ -427,6 +340,7 @@ async def create_evaluation(
         score=evaluation.score,
         comment=evaluation.comment,
         evaluation_file=evaluation.evaluation_file,  # 使用统一的字段名
+        personnel_confirmation=evaluation.personnel_confirmation,  # 人员确认字段
         created_at=evaluation.created_at,
         updated_at=evaluation.updated_at
     )
@@ -451,6 +365,7 @@ async def get_workflow_evaluations(
             score=e.score,
             comment=e.comment,
             evaluation_file=e.evaluation_file,  # 使用统一的字段名
+            personnel_confirmation=e.personnel_confirmation,  # 人员确认字段
             created_at=e.created_at,
             updated_at=e.updated_at
         ) for e in evaluations
@@ -486,6 +401,7 @@ async def get_user_evaluations(
             score=e.score,
             comment=e.comment,
             evaluation_file=e.evaluation_file,
+            personnel_confirmation=e.personnel_confirmation,  # 人员确认字段
             created_at=e.created_at,
             updated_at=e.updated_at
         ) for e in evaluations
@@ -523,6 +439,7 @@ async def get_evaluation_detail(
         score=evaluation.score,
         comment=evaluation.comment,
         evaluation_file=evaluation.evaluation_file,
+        personnel_confirmation=evaluation.personnel_confirmation,  # 人员确认字段
         created_at=evaluation.created_at,
         updated_at=evaluation.updated_at
     )
@@ -533,10 +450,7 @@ async def create_rollback_request(
     workflow_id: str = FormField(...),
     target_form_id: str = FormField(...),
     reason: str = FormField(...),
-    # 单个文件字段（向后兼容）
     support_file: Optional[UploadFile] = File(None),
-    # 多文件字段
-    support_files: List[UploadFile] = File([]),
     current_user: User = Depends(require_restorer),
     db: Session = Depends(get_db)
 ):
@@ -550,7 +464,6 @@ async def create_rollback_request(
         raise HTTPException(status_code=400, detail="无效的ID格式")
     
     # 处理支撑文件上传
-    # 单个文件字段（向后兼容）
     support_file_url = None
     if support_file:
         try:
@@ -562,21 +475,6 @@ async def create_rollback_request(
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
-    
-    # 多文件字段
-    support_file_urls = []
-    for sup_file in support_files:
-        if sup_file and sup_file.filename:
-            try:
-                file_content = await sup_file.read()
-                file_url = file_service.upload_file(
-                    file_content=file_content,
-                    filename=sup_file.filename,
-                    content_type=sup_file.content_type
-                )
-                support_file_urls.append(file_url)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
     
     # 检查工作流权限
     workflow = db.query(Workflow).filter(Workflow.workflow_id == workflow_uuid).first()
@@ -600,10 +498,7 @@ async def create_rollback_request(
         requester_id=current_user.user_id,
         target_form_id=target_form_uuid,
         reason=reason,
-        # 单个文件字段（向后兼容）
         support_file_url=support_file_url,
-        # 多文件字段
-        support_file_urls=support_file_urls if support_file_urls else None,
         status='pending'
     )
     
@@ -617,10 +512,7 @@ async def create_rollback_request(
         requester_name=rollback_request.requester.full_name,
         target_form_id=rollback_request.target_form_id,
         reason=rollback_request.reason,
-        # 单个文件字段（向后兼容）
         support_file_url=rollback_request.support_file_url,
-        # 多文件字段
-        support_file_urls=rollback_request.support_file_urls,
         status=rollback_request.status,
         approver_name=None,
         approved_at=rollback_request.approved_at,
@@ -767,10 +659,7 @@ async def get_rollback_requests(
                 requester_name=r.requester.full_name,
                 target_form_id=r.target_form_id,
                 reason=r.reason,
-                # 单个文件字段（向后兼容）
                 support_file_url=r.support_file_url,
-                # 多文件字段
-                support_file_urls=r.support_file_urls,
                 status=r.status,
                 approver_name=r.approver.full_name if r.approver else None,
                 approved_at=r.approved_at,
@@ -811,10 +700,7 @@ async def get_rollback_request_detail(
         requester_name=rollback_request.requester.full_name,
         target_form_id=rollback_request.target_form_id,
         reason=rollback_request.reason,
-        # 单个文件字段（向后兼容）
         support_file_url=rollback_request.support_file_url,
-        # 多文件字段
-        support_file_urls=rollback_request.support_file_urls,
         status=rollback_request.status,
         approver_name=rollback_request.approver.full_name if rollback_request.approver else None,
         approved_at=rollback_request.approved_at,
@@ -842,8 +728,8 @@ async def admin_get_all_forms(
             workflow_id=f.workflow_id,
             step_no=f.step_no,
             submitter_name=f.submitter.full_name,
-            image_url=f.image_url,
-            image_meta=f.image_meta,
+            image_url=json.loads(f.image_url) if f.image_url else None,
+            image_meta=f.image_meta if f.image_meta else None,
             image_desc=f.image_desc,
             image_desc_file=f.image_desc_file,
             restoration_opinion=f.restoration_opinion,
@@ -899,8 +785,8 @@ async def admin_update_form(
         workflow_id=form.workflow_id,
         step_no=form.step_no,
         submitter_name=form.submitter.full_name,
-        image_url=form.image_url,
-        image_meta=form.image_meta,
+        image_url=json.loads(form.image_url) if form.image_url else None,
+        image_meta=form.image_meta if form.image_meta else None,
         image_desc=form.image_desc,
         image_desc_file=form.image_desc_file,
         restoration_opinion=form.restoration_opinion,
@@ -1150,239 +1036,368 @@ async def admin_batch_delete_evaluations(
 @router.post("/knowledge-files", response_model=KnowledgeSystemFileResponse)
 async def create_knowledge_file(
     file_data: KnowledgeSystemFileCreate,
-    current_user: User = Depends(require_restorer),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """创建知识体系文件记录"""
     
-    # 创建文件记录
     knowledge_file = KnowledgeSystemFile(
         unit=file_data.unit,
         filename=file_data.filename,
         file_url=file_data.file_url,
         file_type=file_data.file_type,
         submission_info=file_data.submission_info,
-        remark=file_data.remark
+        remark=file_data.remark,
+        status='active'
     )
     
     db.add(knowledge_file)
     db.commit()
     db.refresh(knowledge_file)
     
-    return knowledge_file
+    return KnowledgeSystemFileResponse(
+        id=knowledge_file.id,
+        unit=knowledge_file.unit,
+        filename=knowledge_file.filename,
+        file_url=knowledge_file.file_url,
+        file_type=knowledge_file.file_type,
+        submission_info=knowledge_file.submission_info,
+        status=knowledge_file.status,
+        remark=knowledge_file.remark,
+        created_at=knowledge_file.created_at,
+        updated_at=knowledge_file.updated_at,
+        deleted_at=knowledge_file.deleted_at
+    )
 
 @router.get("/knowledge-files", response_model=KnowledgeSystemFilePaginatedResponse)
 async def get_knowledge_files(
-    page: int = 1,
-    limit: int = 20,
     unit: Optional[str] = None,
     file_type: Optional[str] = None,
     submission_info: Optional[str] = None,
     status: Optional[str] = None,
-    search: Optional[str] = None,
-    current_user: User = Depends(require_restorer),
+    keyword: Optional[str] = None,
+    page: int = 1,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取知识体系文件列表（分页）"""
+    """获取知识体系文件列表"""
     
-    # 构建查询条件
-    query = db.query(KnowledgeSystemFile).filter(KnowledgeSystemFile.deleted_at.is_(None))
+    query = db.query(KnowledgeSystemFile)
     
-    # 添加过滤条件
+    # 过滤已删除的记录
+    query = query.filter(KnowledgeSystemFile.deleted_at.is_(None))
+    
+    # 筛选条件
     if unit:
-        query = query.filter(KnowledgeSystemFile.unit.ilike(f"%{unit}%"))
+        query = query.filter(KnowledgeSystemFile.unit.contains(unit))
+    
     if file_type:
         query = query.filter(KnowledgeSystemFile.file_type == file_type)
+    
     if submission_info:
         query = query.filter(KnowledgeSystemFile.submission_info == submission_info)
+    
     if status:
         query = query.filter(KnowledgeSystemFile.status == status)
-    if search:
+    
+    # 关键词搜索
+    if keyword:
         query = query.filter(
             or_(
-                KnowledgeSystemFile.filename.ilike(f"%{search}%"),
-                KnowledgeSystemFile.unit.ilike(f"%{search}%"),
-                KnowledgeSystemFile.remark.ilike(f"%{search}%")
+                KnowledgeSystemFile.filename.contains(keyword),
+                KnowledgeSystemFile.unit.contains(keyword),
+                KnowledgeSystemFile.submission_info.contains(keyword),
+                KnowledgeSystemFile.remark.contains(keyword)
             )
         )
     
     # 获取总数
-    total = query.count()
+    total_count = query.count()
     
-    # 分页查询
+    # 分页
     offset = (page - 1) * limit
     files = query.order_by(desc(KnowledgeSystemFile.created_at)).offset(offset).limit(limit).all()
     
     # 计算总页数
-    total_pages = (total + limit - 1) // limit
+    total_pages = (total_count + limit - 1) // limit
     
     return KnowledgeSystemFilePaginatedResponse(
-        items=files,
-        total=total,
+        items=[
+            KnowledgeSystemFileResponse(
+                id=f.id,
+                unit=f.unit,
+                filename=f.filename,
+                file_url=f.file_url,
+                file_type=f.file_type,
+                submission_info=f.submission_info,
+                status=f.status,
+                remark=f.remark,
+                created_at=f.created_at,
+                updated_at=f.updated_at,
+                deleted_at=f.deleted_at
+            ) for f in files
+        ],
+        total=total_count,
         page=page,
         limit=limit,
         total_pages=total_pages
     )
 
 @router.get("/knowledge-files/{file_id}", response_model=KnowledgeSystemFileResponse)
-async def get_knowledge_file(
+async def get_knowledge_file_detail(
     file_id: int,
-    current_user: User = Depends(require_restorer),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取单个知识体系文件详情"""
+    """获取知识体系文件详情"""
     
-    file_record = db.query(KnowledgeSystemFile).filter(
+    knowledge_file = db.query(KnowledgeSystemFile).filter(
         KnowledgeSystemFile.id == file_id,
         KnowledgeSystemFile.deleted_at.is_(None)
     ).first()
     
-    if not file_record:
-        raise HTTPException(status_code=404, detail="文件记录不存在")
+    if not knowledge_file:
+        raise HTTPException(status_code=404, detail="文件不存在")
     
-    return file_record
+    return KnowledgeSystemFileResponse(
+        id=knowledge_file.id,
+        unit=knowledge_file.unit,
+        filename=knowledge_file.filename,
+        file_url=knowledge_file.file_url,
+        file_type=knowledge_file.file_type,
+        submission_info=knowledge_file.submission_info,
+        status=knowledge_file.status,
+        remark=knowledge_file.remark,
+        created_at=knowledge_file.created_at,
+        updated_at=knowledge_file.updated_at,
+        deleted_at=knowledge_file.deleted_at
+    )
 
 @router.put("/knowledge-files/{file_id}", response_model=KnowledgeSystemFileResponse)
 async def update_knowledge_file(
     file_id: int,
     file_data: KnowledgeSystemFileUpdate,
-    current_user: User = Depends(require_restorer),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """更新知识体系文件记录"""
     
-    file_record = db.query(KnowledgeSystemFile).filter(
+    knowledge_file = db.query(KnowledgeSystemFile).filter(
         KnowledgeSystemFile.id == file_id,
         KnowledgeSystemFile.deleted_at.is_(None)
     ).first()
     
-    if not file_record:
-        raise HTTPException(status_code=404, detail="文件记录不存在")
+    if not knowledge_file:
+        raise HTTPException(status_code=404, detail="文件不存在")
     
     # 更新字段
-    update_data = file_data.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(file_record, field, value)
+    if file_data.unit is not None:
+        knowledge_file.unit = file_data.unit
+    if file_data.filename is not None:
+        knowledge_file.filename = file_data.filename
+    if file_data.file_url is not None:
+        knowledge_file.file_url = file_data.file_url
+    if file_data.file_type is not None:
+        knowledge_file.file_type = file_data.file_type
+    if file_data.submission_info is not None:
+        knowledge_file.submission_info = file_data.submission_info
+    if file_data.status is not None:
+        knowledge_file.status = file_data.status
+    if file_data.remark is not None:
+        knowledge_file.remark = file_data.remark
+    
+    knowledge_file.updated_at = func.now()
     
     db.commit()
-    db.refresh(file_record)
+    db.refresh(knowledge_file)
     
-    return file_record
+    return KnowledgeSystemFileResponse(
+        id=knowledge_file.id,
+        unit=knowledge_file.unit,
+        filename=knowledge_file.filename,
+        file_url=knowledge_file.file_url,
+        file_type=knowledge_file.file_type,
+        submission_info=knowledge_file.submission_info,
+        status=knowledge_file.status,
+        remark=knowledge_file.remark,
+        created_at=knowledge_file.created_at,
+        updated_at=knowledge_file.updated_at,
+        deleted_at=knowledge_file.deleted_at
+    )
 
 @router.delete("/knowledge-files/{file_id}")
 async def delete_knowledge_file(
     file_id: int,
-    current_user: User = Depends(require_restorer),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """软删除知识体系文件记录"""
     
-    file_record = db.query(KnowledgeSystemFile).filter(
+    knowledge_file = db.query(KnowledgeSystemFile).filter(
         KnowledgeSystemFile.id == file_id,
         KnowledgeSystemFile.deleted_at.is_(None)
     ).first()
     
-    if not file_record:
-        raise HTTPException(status_code=404, detail="文件记录不存在")
+    if not knowledge_file:
+        raise HTTPException(status_code=404, detail="文件不存在")
     
     # 软删除
-    file_record.deleted_at = func.now()
+    knowledge_file.deleted_at = func.now()
     db.commit()
     
-    return ResponseModel(success=True, message="文件记录删除成功")
+    return ResponseModel(
+        success=True,
+        message="文件已删除",
+        data={"file_id": file_id}
+    )
 
 @router.post("/knowledge-files/batch-delete", response_model=BatchDeleteResponse)
 async def batch_delete_knowledge_files(
-    request: BatchDeleteRequest,
-    current_user: User = Depends(require_restorer),
+    request_data: BatchDeleteRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """批量删除知识体系文件记录"""
     
-    # 查询要删除的文件记录
-    file_records = db.query(KnowledgeSystemFile).filter(
-        KnowledgeSystemFile.id.in_(request.ids),
+    file_ids = request_data.ids
+    
+    # 查询所有要删除的文件（过滤已删除的记录）
+    knowledge_files = db.query(KnowledgeSystemFile).filter(
+        KnowledgeSystemFile.id.in_(file_ids),
         KnowledgeSystemFile.deleted_at.is_(None)
     ).all()
     
-    if not file_records:
-        raise HTTPException(status_code=404, detail="未找到要删除的文件记录")
+    if not knowledge_files:
+        raise HTTPException(status_code=404, detail="未找到要删除的文件")
     
-    # 软删除
+    # 批量软删除
     deleted_count = 0
-    for file_record in file_records:
-        file_record.deleted_at = func.now()
+    for file in knowledge_files:
+        file.deleted_at = func.now()
         deleted_count += 1
     
     db.commit()
     
     return BatchDeleteResponse(
         success=True,
-        message=f"成功删除{deleted_count}条文件记录",
+        message=f"成功删除{deleted_count}个文件记录",
         deleted_count=deleted_count,
-        ids=[f.id for f in file_records]
+        ids=file_ids
     )
 
 @router.post("/knowledge-files/upload", response_model=FileUploadResponse)
 async def upload_knowledge_file(
     file: UploadFile = File(...),
-    current_user: User = Depends(require_restorer)
+    current_user: User = Depends(get_current_user)
 ):
     """上传知识体系文件到MinIO存储桶"""
     
-    # 检查文件类型
-    allowed_types = ['doc', 'jpg', 'png', 'pdf', 'docx', 'caj', 'xlsx', 'tif', 'ppt', 'pptx', 'txt', 'zip', 'rar']
-    file_extension = file.filename.split('.')[-1].lower() if '.' in file.filename else ''
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="文件名不能为空")
     
-    if file_extension not in allowed_types:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"不支持的文件类型: {file_extension}，支持的类型: {', '.join(allowed_types)}"
-        )
-    
-    # 上传到knowledge-files存储桶
     try:
-        file_url = await file_service.upload_file_async(file, "knowledge-files")
+        file_content = await file.read()
+        file_url = file_service.upload_file(
+            file_content=file_content,
+            filename=file.filename,
+            content_type=file.content_type,
+            bucket_name="knowledge-files"
+        )
+        
         return FileUploadResponse(
             filename=file.filename,
             file_url=file_url,
-            file_size=file.size,
+            file_size=len(file_content),
             content_type=file.content_type
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"文件上传失败: {str(e)}")
 
-@router.get("/knowledge-files/stats")
-async def get_knowledge_files_stats(
-    current_user: User = Depends(require_restorer),
+# 工作档案API（用于WorkArchive页面）
+@router.get("/work-archive/folders")
+async def get_work_archive_folders(
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取知识体系文件统计信息"""
+    """获取工作档案文件夹结构"""
     
-    # 总文件数
-    total_files = db.query(KnowledgeSystemFile).filter(KnowledgeSystemFile.deleted_at.is_(None)).count()
+    # 根据submission_info分组创建文件夹结构
+    folders = db.query(KnowledgeSystemFile.submission_info).filter(
+        KnowledgeSystemFile.deleted_at.is_(None),
+        KnowledgeSystemFile.status == 'active'
+    ).distinct().all()
     
-    # 按文件类型统计
-    file_type_stats = db.query(
-        KnowledgeSystemFile.file_type,
-        func.count(KnowledgeSystemFile.id).label('count')
-    ).filter(KnowledgeSystemFile.deleted_at.is_(None)).group_by(KnowledgeSystemFile.file_type).all()
+    folder_structure = []
+    for folder in folders:
+        folder_structure.append({
+            "label": folder[0],
+            "key": folder[0],
+            "children": []
+        })
     
-    # 按提交信息统计
-    submission_stats = db.query(
-        KnowledgeSystemFile.submission_info,
-        func.count(KnowledgeSystemFile.id).label('count')
-    ).filter(KnowledgeSystemFile.deleted_at.is_(None)).group_by(KnowledgeSystemFile.submission_info).all()
+    return folder_structure
+
+@router.get("/work-archive/files")
+async def get_work_archive_files(
+    dir: Optional[str] = None,
+    keyword: Optional[str] = None,
+    file_type: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取工作档案文件列表"""
     
-    # 按单位统计
-    unit_stats = db.query(
-        KnowledgeSystemFile.unit,
-        func.count(KnowledgeSystemFile.id).label('count')
-    ).filter(KnowledgeSystemFile.deleted_at.is_(None)).group_by(KnowledgeSystemFile.unit).all()
+    query = db.query(KnowledgeSystemFile).filter(
+        KnowledgeSystemFile.deleted_at.is_(None),
+        KnowledgeSystemFile.status == 'active'
+    )
     
-    return {
-        "total_files": total_files,
-        "file_type_distribution": {item.file_type: item.count for item in file_type_stats},
-        "submission_info_distribution": {item.submission_info: item.count for item in submission_stats},
-        "unit_distribution": {item.unit: item.count for item in unit_stats}
-    }
+    # 按文件夹筛选
+    if dir:
+        query = query.filter(KnowledgeSystemFile.submission_info == dir)
+    
+    # 按文件类型筛选
+    if file_type:
+        query = query.filter(KnowledgeSystemFile.file_type == file_type)
+    
+    # 关键词搜索
+    if keyword:
+        query = query.filter(
+            or_(
+                KnowledgeSystemFile.filename.contains(keyword),
+                KnowledgeSystemFile.unit.contains(keyword),
+                KnowledgeSystemFile.remark.contains(keyword)
+            )
+        )
+    
+    files = query.order_by(desc(KnowledgeSystemFile.created_at)).all()
+    
+    # 转换为前端需要的格式
+    file_list = []
+    for file in files:
+        # 获取文件扩展名
+        ext = file.filename.split('.')[-1].lower() if '.' in file.filename else ''
+        
+        # 确定文件类别
+        category = "other"
+        if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'tif', 'tiff']:
+            category = "image"
+        elif ext in ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v']:
+            category = "video"
+        elif ext in ['pdf', 'doc', 'docx', 'txt', 'md', 'caj']:
+            category = "document"
+        elif ext in ['js', 'ts', 'vue', 'html', 'css', 'json', 'yaml', 'yml', 'py']:
+            category = "code"
+        
+        file_list.append({
+            "name": file.filename,
+            "path": f"{file.submission_info}/{file.filename}",
+            "ext": f".{ext}",
+            "size": 0,  # 文件大小暂时设为0，可以从MinIO获取
+            "mtime": file.created_at.isoformat(),
+            "category": category,
+            "url": file.file_url
+        })
+    
+    return file_list

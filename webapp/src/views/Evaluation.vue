@@ -16,12 +16,6 @@
             </template>
             刷新
           </t-button>
-          <t-button theme="default" variant="outline" v-if="canDelete" @click="handleBatchDelete">
-            <template #icon>
-              <t-icon name="delete" />
-            </template>
-            批量删除
-          </t-button>
         </div>
 
         <div class="right-operations">
@@ -105,12 +99,10 @@
           :columns="columns"
           :loading="loading"
           :pagination="pagination"
-          :selected-row-keys="selectedRowKeys"
           :row-key="rowKey"
           vertical-align="top"
           hover
           @page-change="handlePageChange"
-          @select-change="handleSelectChange"
         >
           <template #status="{ row }">
             <t-tag
@@ -130,10 +122,6 @@
               <t-link theme="primary" @click="viewWorkflowDetails(slotProps.row)">
                 <t-icon name="view" />
                 {{ slotProps.row.has_evaluation ? '查看详情' : '查看并评估' }}
-              </t-link>
-              <t-link theme="danger" v-if="canDelete" @click="handleDelete(slotProps.row)">
-                <t-icon name="delete" />
-                删除
               </t-link>
             </t-space>
           </template>
@@ -364,10 +352,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import Layout from '@/components/Layout.vue'
-import { getEvaluationWorkflows, deleteWorkflow, batchDeleteWorkflows, getWorkflowDetail, submitEvaluation, getEvaluationStats } from '@/api/evaluation.js'
+import { getEvaluationWorkflows, getWorkflowDetail, submitEvaluation, getEvaluationStats } from '@/api/evaluation.js'
 import request from '@/api/request.js'
 
 // 作者信息
@@ -384,7 +372,6 @@ const searchValue = ref('')
 const statusFilter = ref('')
 const tableData = ref([])
 const statsData = ref({})
-const selectedRowKeys = ref([])
 const detailDialogVisible = ref(false)
 const currentWorkflow = ref(null)
 const workflowForms = ref([])
@@ -435,7 +422,6 @@ const pagination = ref({
 
 // 表格列配置
 const columns = [
-  { colKey: 'row-select', type: 'multiple', width: 64, fixed: 'left' },
   {
     title: '标题',
     colKey: 'title',
@@ -467,10 +453,6 @@ const columns = [
   }
 ]
 
-// 计算属性
-const canDelete = computed(() => {
-  return userRole.value === 'admin'
-})
 
 const rowKey = 'workflow_id'
 
@@ -496,10 +478,7 @@ const loadData = async (page = 1) => {
       workflows.map(async (workflow) => {
         try {
           // 获取该工作流的评估记录
-          const evaluations = await request({
-            url: `/api/workflows/${workflow.workflow_id}/evaluations`,
-            method: 'GET'
-          })
+          const evaluations = await request.get(`/workflows/${workflow.workflow_id}/evaluations`)
           const workflowEvaluations = evaluations.data || evaluations || []
           
           // 收集评估数据用于统计计算
@@ -639,9 +618,6 @@ const handlePageChange = (current, pageInfo) => {
   loadData(current)
 }
 
-const handleSelectChange = (value) => {
-  selectedRowKeys.value = value
-}
 
 const refreshData = () => {
   loadData(pagination.value.defaultCurrent)
@@ -672,41 +648,6 @@ const handleCloseDetailDialog = () => {
   resetEvaluationForm()
 }
 
-const handleDelete = async (row) => {
-  if (!confirm('确定要删除这个工作流吗？此操作不可撤销！')) {
-    return
-  }
-
-  try {
-    await deleteWorkflow(row.workflow_id)
-    MessagePlugin.success('删除成功')
-    refreshData()
-  } catch (error) {
-    console.error('删除工作流失败:', error)
-    MessagePlugin.error('删除失败')
-  }
-}
-
-const handleBatchDelete = async () => {
-  if (selectedRowKeys.value.length === 0) {
-    MessagePlugin.warning('请先选择要删除的工作流')
-    return
-  }
-
-  if (!confirm(`确定要删除选中的 ${selectedRowKeys.value.length} 条记录吗？此操作不可撤销！`)) {
-    return
-  }
-
-  try {
-    await batchDeleteWorkflows(selectedRowKeys.value)
-    MessagePlugin.success('批量删除成功')
-    selectedRowKeys.value = []
-    refreshData()
-  } catch (error) {
-    console.error('批量删除失败:', error)
-    MessagePlugin.error('批量删除失败')
-  }
-}
 
 const handleFileChange = (value) => {
   try {
